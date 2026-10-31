@@ -167,3 +167,4 @@ The backend uses a uniform `BaseStorageService` interface:
 - `SupabaseStorageService`: Stores encrypted blobs in private Supabase Storage buckets. Authenticated via `SUPABASE_SERVICE_ROLE_KEY` held exclusively on the Flask backend.
 
 Plaintext file names are never used as storage keys; they remain stored only as metadata in the database.
+

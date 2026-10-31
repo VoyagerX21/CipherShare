@@ -25,3 +25,4 @@ class User(db.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat()
         }
+

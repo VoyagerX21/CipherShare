@@ -102,3 +102,4 @@ def logout():
         metadata={'email': g.current_user.email}
     )
     return jsonify({'message': 'Logged out successfully'}), 200
+

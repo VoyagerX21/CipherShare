@@ -9,6 +9,8 @@ CipherShare is a full-stack web application developed for a college Cryptography
 
 ## 1. Key Features
 
+- **Classic Light Theme & Full-Width Architecture**: Clean, classic institutional aesthetic with a dedicated left sidebar navigation, real-time key vault widget, 1-click persona quick-switcher, and dynamic unread delivery count badges. Spans the full screen width without artificial center boxing.
+- **Robust Text Wrapping & Large Filename Handling**: All file names, SHA-256 hashes, public key fingerprints, and recipient identifiers feature comprehensive text wrapping (`overflow-wrap: anywhere`), preventing clipping or overflow regardless of file name length.
 - **Hybrid Encryption**: Combines **AES-256-GCM** (128-bit authentication tag, 96-bit nonce) for high-speed file payload encryption with **RSA-OAEP 3072-bit** asymmetric cryptography for multi-recipient key encapsulation.
 - **Client-Side Key Vault**: User RSA private keys are generated in the browser via the standard W3C Web Crypto API, encrypted with a master passphrase using **PBKDF2-SHA-256** (600,000 iterations) + **AES-GCM**, and stored locally in **IndexedDB**. Private keys are **never transmitted** to the server.
 - **Canonical Additional Authenticated Data (AAD)**: Cryptographically binds file metadata (`fileId`, `senderId`, `version`) to the AES-GCM authentication tag.
@@ -190,3 +192,4 @@ To switch from the default local private storage to hosted Supabase Storage:
 - **Server-Side Metadata**: File names, file sizes, and recipient associations are visible as plaintext database records.
 - **Private Key Loss**: If a user clears their browser's IndexedDB without an exported backup, previously shared files become unrecoverable.
 - **Academic Scope**: This prototype has not undergone an external commercial security audit.
+

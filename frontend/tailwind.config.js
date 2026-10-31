@@ -7,20 +7,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        cipher: {
-          bg: '#0b0f19',
-          surface: '#111827',
-          surfaceHover: '#1f2937',
-          border: '#1e293b',
-          borderLight: '#334155',
-          primary: '#0ea5e9',
-          primaryHover: '#0284c7',
-          accent: '#6366f1',
-          success: '#10b981',
-          warning: '#f59e0b',
-          danger: '#ef4444',
-          textMuted: '#94a3b8'
+        classic: {
+          bg: '#f8fafc',
+          surface: '#ffffff',
+          surfaceHover: '#f1f5f9',
+          border: '#e2e8f0',
+          borderStrong: '#cbd5e1',
+          navy: '#0f172a',
+          navyLight: '#1e293b',
+          primary: '#2563eb',
+          primaryHover: '#1d4ed8',
+          accent: '#4f46e5',
+          muted: '#64748b',
+          subtle: '#94a3b8'
         }
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
       }
     },
   },

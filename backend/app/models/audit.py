@@ -28,3 +28,4 @@ class AuditEvent(db.Model):
             'safe_metadata': self.safe_metadata,
             'created_at': self.created_at.isoformat()
         }
+

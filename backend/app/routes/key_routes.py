@@ -118,3 +118,4 @@ def get_user_fingerprint(user_id):
         'user_id': user_id,
         'fingerprint': active_key.fingerprint
     }), 200
+

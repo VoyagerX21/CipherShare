@@ -247,3 +247,4 @@ export const api = {
     reset: () => request<{ message: string }>('/demo/reset', { method: 'POST' }),
   },
 };
+

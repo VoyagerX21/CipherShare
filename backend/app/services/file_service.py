@@ -273,3 +273,4 @@ def authorize_file_download(file_id: str, user: User) -> tuple[dict, int]:
             'encrypted_aes_key': recipient_row.encrypted_aes_key
         }
     }, 200
+

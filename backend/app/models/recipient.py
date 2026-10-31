@@ -30,3 +30,4 @@ class FileRecipient(db.Model):
             'access_status': self.access_status,
             'created_at': self.created_at.isoformat()
         }
+

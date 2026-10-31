@@ -27,3 +27,4 @@ class UserPublicKey(db.Model):
             'created_at': self.created_at.isoformat(),
             'revoked_at': self.revoked_at.isoformat() if self.revoked_at else None
         }
+

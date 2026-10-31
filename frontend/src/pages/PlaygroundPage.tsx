@@ -10,9 +10,7 @@ import {
   wrapAESKeyForRecipient,
   unwrapAESKeyWithPrivateKey,
   computeSHA256,
-  arrayBufferToHex,
-  arrayBufferToBase64,
-  hexToArrayBuffer
+  arrayBufferToHex
 } from '../lib/crypto/webcrypto';
 import {
   Sparkles,
@@ -21,11 +19,7 @@ import {
   Hash,
   AlertTriangle,
   Play,
-  RotateCcw,
-  CheckCircle2,
-  XCircle,
-  ShieldCheck,
-  Layers
+  CheckCircle2
 } from 'lucide-react';
 
 export const PlaygroundPage: React.FC = () => {
@@ -150,7 +144,7 @@ export const PlaygroundPage: React.FC = () => {
       }
 
       try {
-        const decrypted = await decryptFilePayload(testBuffer.buffer, key, nonce, aadBytes);
+        await decryptFilePayload(testBuffer.buffer, key, nonce, aadBytes);
         setTamperResult({
           passed: false,
           message: 'CRITICAL FAILURE: Tampered data was accepted without authentication tag failure!'
@@ -167,133 +161,127 @@ export const PlaygroundPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-mono mb-2">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Interactive Cryptographic Laboratory</span>
-        </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Cryptographic Playground
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
+    <div className="w-full space-y-8">
+      {/* Header */}
+      <div className="pb-6 border-b border-slate-200">
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Cryptographic Playground</h2>
+        <p className="text-xs text-slate-500 mt-1">
           Explore individual cryptographic primitives in isolation. Verify mathematics, key sizes, and integrity guarantees.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-800 space-x-4 text-xs font-semibold">
+      <div className="flex border-b border-slate-200 space-x-6 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('aes')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
-            activeTab === 'aes' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            activeTab === 'aes' ? 'border-slate-900 text-slate-900 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Cpu className="w-4 h-4" />
+          <Cpu className="w-4 h-4 text-sky-600" />
           <span>1. AES-256-GCM Symmetric</span>
         </button>
 
         <button
           onClick={() => setActiveTab('rsa')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
-            activeTab === 'rsa' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            activeTab === 'rsa' ? 'border-slate-900 text-slate-900 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <KeyRound className="w-4 h-4" />
-          <span>2. RSA-OAEP 3072-bit Key Wrap</span>
+          <KeyRound className="w-4 h-4 text-indigo-600" />
+          <span>2. RSA-OAEP 3072 Key Wrap</span>
         </button>
 
         <button
           onClick={() => setActiveTab('sha')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
-            activeTab === 'sha' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            activeTab === 'sha' ? 'border-slate-900 text-slate-900 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Hash className="w-4 h-4" />
+          <Hash className="w-4 h-4 text-emerald-600" />
           <span>3. SHA-256 Fingerprinting</span>
         </button>
 
         <button
           onClick={() => setActiveTab('tamper')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
-            activeTab === 'tamper' ? 'border-rose-500 text-rose-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            activeTab === 'tamper' ? 'border-slate-900 text-slate-900 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <AlertTriangle className="w-4 h-4" />
+          <AlertTriangle className="w-4 h-4 text-rose-600" />
           <span>4. Bit-Flip Tampering Test</span>
         </button>
       </div>
 
       {/* Tab 1: AES-GCM */}
       {activeTab === 'aes' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-6 bg-[#111827] border border-slate-800 rounded-3xl p-6 space-y-4">
-            <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-sky-400" />
-              <span>AES-256-GCM Configuration</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-sky-600" />
+              <span>AES-256-GCM Input Configuration</span>
             </h3>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Plaintext Message</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Plaintext Message</label>
               <textarea
                 rows={3}
                 value={aesPlaintext}
                 onChange={(e) => setAesPlaintext(e.target.value)}
-                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-sky-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 break-words-anywhere"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Additional Authenticated Data (AAD)
               </label>
               <textarea
                 rows={2}
                 value={aesAad}
                 onChange={(e) => setAesAad(e.target.value)}
-                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-sky-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 break-words-anywhere"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1">
                 AAD is not encrypted, but it is cryptographically authenticated by the 128-bit GCM tag.
               </p>
             </div>
 
             <button
               onClick={handleRunAES}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 shadow-sm transition-colors"
             >
-              <Play className="w-4 h-4" />
+              <Play className="w-4 h-4 text-sky-400" />
               <span>Run AES-256-GCM Test</span>
             </button>
           </div>
 
-          <div className="lg:col-span-6 bg-[#111827] border border-slate-800 rounded-3xl p-6 space-y-4">
-            <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Cryptographic Output Inspector</span>
+          <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs min-w-0">
+            <h3 className="font-bold text-slate-900 text-sm">
+              Cryptographic Output Inspector
             </h3>
 
             {aesResult ? (
-              <div className="space-y-3 text-xs">
-                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+              <div className="space-y-3 text-xs min-w-0">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 min-w-0">
                   <span className="text-slate-400 block font-mono text-[10px]">96-BIT NONCE (HEX):</span>
-                  <span className="font-mono text-sky-400 select-all break-all">{aesResult.nonceHex}</span>
+                  <span className="font-mono text-slate-800 break-words-anywhere select-all block mt-0.5">{aesResult.nonceHex}</span>
                 </div>
 
-                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 min-w-0">
                   <span className="text-slate-400 block font-mono text-[10px]">CIPHERTEXT + 128-BIT AUTH TAG (HEX):</span>
-                  <span className="font-mono text-slate-300 select-all break-all">{aesResult.ciphertextHex}</span>
+                  <span className="font-mono text-slate-800 break-words-anywhere select-all block mt-0.5">{aesResult.ciphertextHex}</span>
                 </div>
 
                 {aesDecryptResult && (
-                  <div className="bg-emerald-950/20 border border-emerald-500/30 p-3 rounded-xl">
-                    <span className="text-emerald-400 font-semibold block mb-1">Authenticated Decryption Result:</span>
-                    <p className="font-mono text-slate-200">{aesDecryptResult.recoveredText}</p>
+                  <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl min-w-0">
+                    <span className="text-emerald-900 font-bold block mb-1">Authenticated Decryption Result:</span>
+                    <p className="font-mono text-emerald-950 break-words-anywhere">{aesDecryptResult.recoveredText}</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-slate-500 text-xs py-10 text-center">
+              <div className="text-slate-400 text-xs py-12 text-center">
                 Click "Run AES-256-GCM Test" to inspect live Web Crypto outputs.
               </div>
             )}
@@ -303,13 +291,13 @@ export const PlaygroundPage: React.FC = () => {
 
       {/* Tab 2: RSA-OAEP */}
       {activeTab === 'rsa' && (
-        <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 space-y-6">
-          <div className="max-w-2xl">
-            <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-              <KeyRound className="w-5 h-5 text-indigo-400" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-2xs">
+          <div className="max-w-3xl">
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-indigo-600" />
               <span>RSA-OAEP 3072-bit Key Encapsulation Mechanism</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Demonstrates generating a 3072-bit RSA key pair, wrapping a random 256-bit AES content key, and unwrapping it with the private key.
             </p>
           </div>
@@ -317,7 +305,7 @@ export const PlaygroundPage: React.FC = () => {
           <button
             onClick={handleRunRSA}
             disabled={rsaStatus === 'running'}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-500 hover:bg-indigo-400 text-white flex items-center gap-2 disabled:opacity-50"
+            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 disabled:opacity-50 shadow-sm transition-colors"
           >
             {rsaStatus === 'running' ? (
               <>
@@ -326,7 +314,7 @@ export const PlaygroundPage: React.FC = () => {
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
+                <Play className="w-4 h-4 text-sky-400" />
                 <span>Execute RSA-OAEP Key Wrap Test</span>
               </>
             )}
@@ -334,19 +322,19 @@ export const PlaygroundPage: React.FC = () => {
 
           {rsaDetails && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-slate-400 font-semibold block">Public Key Fingerprint (RFC 7638 SHA-256):</span>
-                <span className="font-mono text-sky-400 break-all select-all block">{rsaDetails.fingerprint}</span>
-                <span className="text-slate-500 text-[11px] block">Public Modulus: {rsaDetails.jwkModulusSnippet}</span>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 min-w-0">
+                <span className="text-slate-700 font-bold block">Public Key Fingerprint (RFC 7638 SHA-256):</span>
+                <span className="font-mono text-slate-900 break-words-anywhere select-all block text-xs">{rsaDetails.fingerprint}</span>
+                <span className="text-slate-500 text-[11px] block break-words-anywhere">Public Modulus: {rsaDetails.jwkModulusSnippet}</span>
               </div>
 
-              <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-slate-400 font-semibold block">Wrapped AES Key Envelope (Base64):</span>
-                <span className="font-mono text-indigo-300 break-all select-all block text-[11px]">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 min-w-0">
+                <span className="text-slate-700 font-bold block">Wrapped AES Key Envelope (Base64):</span>
+                <span className="font-mono text-slate-800 break-words-anywhere select-all block text-[11px]">
                   {rsaDetails.wrappedKeyBase64.substring(0, 100)}...
                 </span>
-                <span className="text-emerald-400 text-[11px] font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                <span className="text-emerald-700 text-[11px] font-semibold flex items-center gap-1 pt-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Unwrapped & Recovered 256-bit AES Key successfully!</span>
                 </span>
               </div>
@@ -357,39 +345,39 @@ export const PlaygroundPage: React.FC = () => {
 
       {/* Tab 3: SHA-256 */}
       {activeTab === 'sha' && (
-        <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 space-y-4 max-w-2xl">
-          <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2">
-            <Hash className="w-4 h-4 text-emerald-400" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 max-w-3xl shadow-2xs">
+          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <Hash className="w-4 h-4 text-emerald-600" />
             <span>SHA-256 Digest Calculator</span>
           </h3>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Input Data</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Input Data</label>
             <input
               type="text"
               value={hashInput}
               onChange={(e) => handleRunHash(e.target.value)}
-              className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 break-words-anywhere"
             />
           </div>
 
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-            <span className="text-slate-400 font-semibold text-xs block mb-1">SHA-256 Digest (64 hex characters):</span>
-            <span className="font-mono text-emerald-400 text-xs select-all break-all">{hashOutput}</span>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 min-w-0">
+            <span className="text-slate-500 font-bold text-xs block mb-1">SHA-256 Digest (64 hex characters):</span>
+            <span className="font-mono text-slate-900 text-xs select-all break-words-anywhere font-semibold">{hashOutput}</span>
           </div>
         </div>
       )}
 
       {/* Tab 4: Tampering Lab */}
       {activeTab === 'tamper' && (
-        <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 space-y-6">
-          <div className="max-w-2xl">
-            <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-400" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-2xs">
+          <div className="max-w-3xl">
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-600" />
               <span>Controlled Tampering Simulation</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Test how AES-256-GCM's 128-bit authentication tag guarantees ciphertext and metadata integrity. Any 1-bit modification will cause Web Crypto to reject decryption completely.
+            <p className="text-xs text-slate-500 mt-1">
+              Verify how AES-256-GCM's 128-bit authentication tag guarantees ciphertext and metadata integrity. Any 1-bit modification causes Web Crypto to reject decryption completely.
             </p>
           </div>
 
@@ -399,9 +387,9 @@ export const PlaygroundPage: React.FC = () => {
                 type="checkbox"
                 checked={tamperFlippedBit}
                 onChange={(e) => setTamperFlippedBit(e.target.checked)}
-                className="w-4 h-4 rounded text-rose-500 focus:ring-0 bg-slate-900 border-slate-700"
+                className="w-4 h-4 rounded text-slate-900 focus:ring-0 border-slate-300"
               />
-              <span className="text-slate-200">Flip 1 bit in Ciphertext (Byte #10)</span>
+              <span className="text-slate-800 font-medium">Flip 1 bit in Ciphertext (Byte #10)</span>
             </label>
 
             <label className="flex items-center space-x-2 cursor-pointer">
@@ -409,30 +397,30 @@ export const PlaygroundPage: React.FC = () => {
                 type="checkbox"
                 checked={tamperModifiedAad}
                 onChange={(e) => setTamperModifiedAad(e.target.checked)}
-                className="w-4 h-4 rounded text-rose-500 focus:ring-0 bg-slate-900 border-slate-700"
+                className="w-4 h-4 rounded text-slate-900 focus:ring-0 border-slate-300"
               />
-              <span className="text-slate-200">Modify AAD (Additional Authenticated Data)</span>
+              <span className="text-slate-800 font-medium">Modify AAD (Additional Authenticated Data)</span>
             </label>
           </div>
 
           <button
             onClick={handleRunTamperTest}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-slate-950 flex items-center gap-2"
+            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 shadow-sm transition-colors"
           >
-            <Play className="w-4 h-4" />
+            <Play className="w-4 h-4 text-rose-400" />
             <span>Attempt Decryption of Payload</span>
           </button>
 
           {tamperResult && (
-            <div className={`p-4 rounded-2xl text-xs border ${
+            <div className={`p-4 rounded-xl text-xs border ${
               tamperResult.passed
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
-                : 'bg-rose-950/20 border-rose-500/30 text-rose-300'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                : 'bg-rose-50 border-rose-200 text-rose-950'
             }`}>
               <div className="font-bold text-sm mb-1">
                 {tamperResult.passed ? 'Tampering Detected & Blocked' : 'Tampering Test Failed'}
               </div>
-              <p>{tamperResult.message}</p>
+              <p className="break-words-anywhere">{tamperResult.message}</p>
             </div>
           )}
         </div>

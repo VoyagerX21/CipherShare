@@ -36,3 +36,4 @@ def get_recent_audit_logs():
     return jsonify({
         'events': [e.to_dict() for e in events]
     }), 200
+

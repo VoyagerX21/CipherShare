@@ -65,3 +65,4 @@ def build_canonical_aad(file_id: str, sender_id: str, crypto_version: str = "1.0
         "version": crypto_version
     }
     return json.dumps(aad_obj, sort_keys=True, separators=(',', ':'))
+

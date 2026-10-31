@@ -71,3 +71,4 @@ AES-256-GCM accepts Additional Authenticated Data (AAD) that is authenticated by
 - **Metadata Visibility**: File sizes, upload timestamps, and sender/recipient identity IDs are visible to the server database.
 - **Private Key Loss**: If a user clears their browser's IndexedDB without an exported backup, they cannot recover files sent to them.
 - **Trust-on-First-Use (TOFU) for Public Keys**: A compromised server could attempt to substitute a public key. Users should verify public key fingerprints out-of-band.
+

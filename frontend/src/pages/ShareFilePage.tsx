@@ -12,20 +12,17 @@ import {
   importPublicKeyJWK,
   computeSHA256,
   arrayBufferToBase64,
-  arrayBufferToHex,
   CRYPTO_VERSION
 } from '../lib/crypto/webcrypto';
 import {
   UploadCloud,
-  FileCheck2,
   Users,
   CheckCircle2,
   AlertCircle,
   FileText,
-  Shield,
-  KeyRound,
   Lock,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck
 } from 'lucide-react';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -164,7 +161,7 @@ export const ShareFilePage: React.FC = () => {
       addEvent({
         stageKey: 'aes_key_generated',
         title: 'Step 3: AES-256 Key Generation (Web Crypto)',
-        description: 'Generating a fresh cryptographically secure random 256-bit symmetric key using crypto.subtle.generateKey.',
+        description: 'Generating fresh random 256-bit symmetric key using crypto.subtle.generateKey.',
         status: 'running',
         metadata: {
           algorithm: 'AES-GCM',
@@ -264,7 +261,7 @@ export const ShareFilePage: React.FC = () => {
       addEvent({
         stageKey: 'upload_ciphertext',
         title: 'Step 8: Upload Ciphertext to Private Storage',
-        description: 'Uploading encrypted ciphertext blob to private storage adapter (Local Storage / Supabase).',
+        description: 'Uploading encrypted ciphertext blob to private storage adapter.',
         status: 'running'
       });
 
@@ -284,7 +281,7 @@ export const ShareFilePage: React.FC = () => {
       addEvent({
         stageKey: 'complete_share',
         title: 'Step 9: Finalize Cryptographic Session',
-        description: 'Saving encrypted key envelopes and cryptographic metadata in Flask backend database.',
+        description: 'Saving encrypted key envelopes and cryptographic metadata in Flask database.',
         status: 'running'
       });
 
@@ -323,63 +320,67 @@ export const ShareFilePage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-          <UploadCloud className="w-8 h-8 text-sky-400" />
-          <span>Share a File Securely</span>
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
+    <div className="w-full space-y-8">
+      {/* Title */}
+      <div className="pb-6 border-b border-slate-200">
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Share an Encrypted File</h2>
+        <p className="text-xs text-slate-500 mt-1">
           Hybrid encryption: File bytes are encrypted in your browser with AES-256-GCM before upload.
         </p>
       </div>
 
       {errorMessage && (
-        <div className="bg-rose-950/30 border border-rose-500/30 rounded-2xl p-4 text-xs text-rose-300 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-semibold text-rose-200">Execution Error</div>
-            <p className="mt-0.5">{errorMessage}</p>
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="font-bold">Execution Error</div>
+            <p className="mt-0.5 break-words-anywhere">{errorMessage}</p>
           </div>
         </div>
       )}
 
       {completedFileId ? (
-        <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-3xl p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto border border-emerald-500/30">
-            <CheckCircle2 className="w-8 h-8" />
+        <div className="p-8 bg-white border border-slate-200 rounded-2xl text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200">
+            <CheckCircle2 className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">File Successfully Encrypted & Shared!</h3>
-            <p className="text-xs text-slate-300 max-w-lg mx-auto mt-1">
-              The ciphertext blob is stored in private cloud storage. Intended recipients can now retrieve and unwrap their designated key envelopes.
+            <h3 className="text-lg font-bold text-slate-900">File Encrypted and Dispatched!</h3>
+            <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1">
+              Ciphertext is securely stored in private cloud storage. Intended recipients can now unlock their local keys and decrypt the payload.
             </p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-md mx-auto text-left text-xs space-y-1">
-            <div className="text-slate-400">File Reference ID:</div>
-            <div className="font-mono text-sky-400 select-all break-all">{completedFileId}</div>
-            <div className="text-slate-400 pt-2">Ciphertext Integrity SHA-256:</div>
-            <div className="font-mono text-slate-300 text-[11px] select-all break-all">
-              {events.find(e => e.stageKey === 'aes_encrypt_file')?.metadata?.ciphertextSHA256}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl max-w-xl mx-auto text-left text-xs space-y-2">
+            <div>
+              <span className="text-slate-400 font-mono text-[11px] block">FILE ID:</span>
+              <span className="font-mono text-slate-900 font-semibold break-words-anywhere select-all">
+                {completedFileId}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400 font-mono text-[11px] block">CIPHERTEXT SHA-256:</span>
+              <span className="font-mono text-slate-700 text-[11px] break-words-anywhere select-all">
+                {events.find(e => e.stageKey === 'aes_encrypt_file')?.metadata?.ciphertextSHA256}
+              </span>
             </div>
           </div>
 
-          <div className="flex justify-center gap-3 pt-2">
+          <div className="pt-2">
             <button
               onClick={() => {
                 setSelectedFile(null);
                 setCompletedFileId(null);
                 setEvents([]);
               }}
-              className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
             >
               Share Another File
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Form: File and Recipients */}
           <div className="lg:col-span-5 space-y-6">
             {/* File Dropzone */}
@@ -392,7 +393,7 @@ export const ShareFilePage: React.FC = () => {
                   handleFileChange(e.dataTransfer.files[0]);
                 }
               }}
-              className="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-3xl p-6 text-center cursor-pointer transition-colors bg-[#111827]/60"
+              className="border-2 border-dashed border-slate-300 hover:border-slate-800 rounded-2xl p-6 text-center cursor-pointer transition-colors bg-white shadow-2xs"
             >
               <input
                 ref={fileInputRef}
@@ -404,32 +405,32 @@ export const ShareFilePage: React.FC = () => {
                   }
                 }}
               />
-              <div className="p-3 bg-sky-500/10 text-sky-400 rounded-2xl w-fit mx-auto mb-3">
-                <UploadCloud className="w-8 h-8" />
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl w-fit mx-auto mb-3">
+                <UploadCloud className="w-6 h-6 text-sky-600" />
               </div>
-              <h4 className="text-sm font-bold text-slate-200">
-                {selectedFile ? selectedFile.name : 'Select or drop a file'}
+              <h4 className="text-sm font-bold text-slate-900 break-words-anywhere px-2">
+                {selectedFile ? selectedFile.name : 'Choose or drag a file to encrypt'}
               </h4>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 {selectedFile
                   ? `${(selectedFile.size / 1024).toFixed(1)} KB • ${selectedFile.type || 'application/octet-stream'}`
                   : 'PDF, text, images, or documents up to 25 MB'}
               </p>
               {fileHash && (
-                <div className="mt-3 text-[10px] text-slate-500 font-mono break-all select-all bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                <div className="mt-3 text-[10px] text-slate-600 font-mono break-words-anywhere select-all bg-slate-50 p-2 rounded-lg border border-slate-200">
                   SHA-256: {fileHash}
                 </div>
               )}
             </div>
 
             {/* Recipient Selection */}
-            <div className="bg-[#111827] border border-slate-800 rounded-3xl p-5 space-y-3">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-sky-400" />
-                  <span>Select Intended Recipients</span>
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-sky-600" />
+                  <span>Authorized Recipients</span>
                 </h4>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs font-semibold text-slate-500">
                   {selectedRecipientIds.length} selected
                 </span>
               </div>
@@ -438,8 +439,8 @@ export const ShareFilePage: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search user name or email..."
-                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                placeholder="Search recipient name or email..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
               />
 
               <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
@@ -449,34 +450,34 @@ export const ShareFilePage: React.FC = () => {
                     <div
                       key={u.id}
                       onClick={() => u.has_public_key && toggleRecipient(u.id)}
-                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-3 ${
                         !u.has_public_key
-                          ? 'opacity-40 cursor-not-allowed bg-slate-900/20 border-slate-800'
+                          ? 'opacity-40 cursor-not-allowed bg-slate-50 border-slate-200'
                           : isSelected
-                          ? 'bg-sky-950/40 border-sky-500 text-sky-200'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                          ? 'bg-sky-50/70 border-sky-400 text-sky-950 font-medium'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
                       }`}
                     >
-                      <div>
-                        <div className="font-semibold text-slate-200">{u.name}</div>
-                        <div className="text-[11px] text-slate-400">{u.email}</div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 break-words-anywhere">{u.name}</div>
+                        <div className="text-[11px] text-slate-500 break-words-anywhere">{u.email}</div>
                         {u.public_key_fingerprint && (
-                          <div className="text-[9px] font-mono text-sky-400 mt-0.5 truncate max-w-[220px]">
-                            Fingerprint: {u.public_key_fingerprint.substring(0, 16)}...
+                          <div className="text-[9px] font-mono text-slate-500 mt-0.5 break-words-anywhere">
+                            FP: {u.public_key_fingerprint.substring(0, 16)}...
                           </div>
                         )}
                       </div>
                       <div className="shrink-0">
                         {!u.has_public_key ? (
-                          <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                          <span className="text-[10px] text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                             No key
                           </span>
                         ) : isSelected ? (
-                          <span className="w-5 h-5 bg-sky-500 text-slate-950 rounded-full flex items-center justify-center font-bold text-xs">
+                          <span className="w-5 h-5 bg-sky-600 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-2xs">
                             ✓
                           </span>
                         ) : (
-                          <span className="w-5 h-5 border border-slate-700 rounded-full block" />
+                          <span className="w-5 h-5 border border-slate-300 rounded-full block" />
                         )}
                       </div>
                     </div>
@@ -489,24 +490,24 @@ export const ShareFilePage: React.FC = () => {
             <button
               onClick={handleExecuteShare}
               disabled={isProcessing || !selectedFile || selectedRecipientIds.length === 0}
-              className="w-full py-3 rounded-2xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 disabled:opacity-40 flex items-center justify-center gap-2 shadow-xl shadow-sky-500/20 transition-colors"
+              className="w-full py-3 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-40 flex items-center justify-center gap-2 shadow-sm transition-colors"
             >
               {isProcessing ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                  <span>Encrypting & Uploading in Browser...</span>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Encrypting & Dispatching in Browser...</span>
                 </>
               ) : (
                 <>
-                  <Lock className="w-4 h-4" />
+                  <Lock className="w-4 h-4 text-sky-400" />
                   <span>Execute Client-Side Encryption & Share</span>
                 </>
               )}
             </button>
           </div>
 
-          {/* Right: Live Cryptographic Execution Monitor */}
-          <div className="lg:col-span-7 space-y-4">
+          {/* Right: Live Cryptographic Execution Monitor (Full Width) */}
+          <div className="lg:col-span-7">
             <ExecutionMonitor
               events={events}
               activeOperationTitle={

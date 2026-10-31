@@ -46,3 +46,4 @@ class SharedFile(db.Model):
         if include_recipients:
             data['recipients'] = [r.to_dict() for r in self.recipients.all()]
         return data
+

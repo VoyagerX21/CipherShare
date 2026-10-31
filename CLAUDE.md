@@ -32,6 +32,7 @@
 
 ## Code Style & Conventions
 
-- **Frontend**: TypeScript strict mode. React hooks, functional components, Tailwind CSS dark security theme (`#0b0f19` background).
+- **Frontend**: TypeScript strict mode. React hooks, functional components, Tailwind CSS classic light institutional theme, full-width screen layout, left persistent sidebar, comprehensive text wrapping for large filenames.
 - **Backend**: Flask application factory pattern with blueprints under `/api/v1`. SQLAlchemy models with UUID primary keys.
 - **Error Responses**: Consistent JSON error format: `{"error": "<Error Type>", "message": "<Detail>"}`.
+

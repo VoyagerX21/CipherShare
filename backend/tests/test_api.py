@@ -245,3 +245,4 @@ def test_tampering_demo_copy(client):
     # Real file remains unmodified
     real_res = client.get(f'/api/v1/files/{file_id}/download-content', headers={'Authorization': f'Bearer {bob_token}'})
     assert real_res.data == original_bytes
+

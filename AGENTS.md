@@ -39,7 +39,7 @@ CipherShare/
 │   └── run.py                 # Backend entrypoint (Port 5000)
 ├── frontend/
 │   ├── src/
-│   │   ├── components/        # Reusable UI components & ExecutionMonitor
+│   │   ├── components/        # Reusable UI components, ExecutionMonitor & AppLayout
 │   │   ├── features/auth/     # React AuthContext & session management
 │   │   ├── lib/api/           # REST API client
 │   │   ├── lib/crypto/        # Web Crypto API primitives & IndexedDB KeyStore
@@ -76,3 +76,4 @@ For manual or automated end-to-end verification, use the seeded accounts:
 - **Sender**: `sender@demo.local` / `DemoSender123!`
 - **Recipient**: `recipient@demo.local` / `DemoRecipient123!`
 - **Intruder**: `intruder@demo.local` / `DemoIntruder123!`
+

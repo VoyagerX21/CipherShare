@@ -99,3 +99,4 @@ export async function deleteLocalKeyBlob(userId: string): Promise<void> {
     activeUnlockedKey = null;
   }
 }
+

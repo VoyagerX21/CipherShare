@@ -169,3 +169,4 @@ All protected endpoints require an HTTP `Authorization` header formatted as:
 
 ### System Health
 - **Method**: `GET /api/v1/health`
+

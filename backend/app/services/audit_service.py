@@ -47,3 +47,4 @@ def log_audit_event(event_type: str, result: str, actor_user_id=None, file_id=No
         db.session.rollback()
         logger.error(f"Failed to record audit event: {e}")
         return None
+

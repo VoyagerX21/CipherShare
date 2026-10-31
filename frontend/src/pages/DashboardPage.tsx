@@ -15,7 +15,8 @@ import {
   ArrowUpRight,
   Lock,
   Unlock,
-  AlertTriangle
+  AlertTriangle,
+  FileCheck
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -48,188 +49,178 @@ export const DashboardPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-sky-950/40 via-indigo-950/30 to-[#111827] border border-sky-500/20 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-mono">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Authenticated Zero-Knowledge Gateway</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Welcome back, {user?.name}
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-            Client-side hybrid encryption active. Private keys never leave this browser.
+    <div className="w-full space-y-8">
+      {/* Page Title & Quick Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">System Overview</h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Client-side authenticated hybrid encryption • Active persona: <span className="font-semibold text-slate-800">{user?.name}</span> ({user?.email})
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center space-x-3">
           <Link
             to="/share"
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-colors flex items-center gap-2 shadow-lg shadow-sky-500/20"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-2"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5 text-sky-400" />
             <span>Share a File</span>
           </Link>
           <Link
             to="/inbox"
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-medium shadow-2xs transition-colors flex items-center gap-2"
           >
-            <Inbox className="w-4 h-4" />
+            <Inbox className="w-3.5 h-3.5 text-slate-500" />
             <span>View Inbox</span>
           </Link>
         </div>
       </div>
 
-      {/* Key State Warning (if missing or locked) */}
+      {/* Key State Notification (if needed) */}
       {!publicKey ? (
-        <div className="bg-rose-950/20 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl">
-              <KeyRound className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-rose-200">No Asymmetric Public Key Registered</h4>
-              <p className="text-xs text-rose-300/80">Other users cannot share encrypted files with you until you generate a key pair.</p>
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-4">
+          <div className="flex items-center space-x-3 min-w-0">
+            <KeyRound className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-amber-900">No Asymmetric Key Pair Established</h4>
+              <p className="text-xs text-amber-700 mt-0.5">Other users cannot share encrypted files with you until your public key is registered.</p>
             </div>
           </div>
           <Link
             to="/keys"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-slate-950 shrink-0"
+            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold shrink-0 shadow-xs"
           >
-            Setup Key Pair
+            Setup Key
           </Link>
         </div>
       ) : !hasLocalKey ? (
-        <div className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-amber-200">Local Private Key Not Found on This Browser</h4>
-              <p className="text-xs text-amber-300/80">
-                You can send files to others, but you cannot decrypt files sent to you on this device without your local private key backup.
-              </p>
+        <div className="p-4 bg-slate-100 border border-slate-300 rounded-xl flex items-center justify-between gap-4">
+          <div className="flex items-center space-x-3 min-w-0">
+            <AlertTriangle className="w-5 h-5 text-slate-600 shrink-0" />
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-900">Local Private Key Not Stored on this Browser</h4>
+              <p className="text-xs text-slate-600 mt-0.5">You can dispatch encrypted files to others, but cannot decrypt files sent to you on this device.</p>
             </div>
           </div>
           <Link
             to="/keys"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shrink-0"
+            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shrink-0"
           >
-            Key Management
+            Key Details
           </Link>
         </div>
       ) : null}
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 */}
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inbox Files</span>
-            <div className="text-2xl font-bold text-white mt-1">{inboxCount}</div>
-            <span className="text-[11px] text-sky-400">Encrypted for you</span>
-          </div>
-          <div className="p-3 bg-sky-500/10 text-sky-400 rounded-xl">
-            <Inbox className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sent Files</span>
-            <div className="text-2xl font-bold text-white mt-1">{sentCount}</div>
-            <span className="text-[11px] text-indigo-400">Client-encrypted blobs</span>
-          </div>
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
-            <Send className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Key Status</span>
-            <div className="text-sm font-bold text-white mt-1 flex items-center gap-1.5">
-              {isKeyUnlocked ? (
-                <>
-                  <Unlock className="w-4 h-4 text-emerald-400" />
-                  <span className="text-emerald-400">Unlocked</span>
-                </>
-              ) : hasLocalKey ? (
-                <>
-                  <Lock className="w-4 h-4 text-indigo-400" />
-                  <span className="text-indigo-400">Locked (Protected)</span>
-                </>
-              ) : (
-                <span className="text-rose-400">Missing</span>
-              )}
+      {/* Metrics Row (Full Width, Crisp & Classic) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Inbox Deliveries</span>
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+              <Inbox className="w-4 h-4" />
             </div>
-            <span className="text-[11px] text-slate-500">PBKDF2-AES-GCM vault</span>
           </div>
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
-            <KeyRound className="w-5 h-5" />
+          <div className="text-3xl font-extrabold text-slate-900 mt-2">{inboxCount}</div>
+          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+            <span>Encrypted files for you</span>
           </div>
         </div>
 
-        {/* Metric 4 */}
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Audit Events</span>
-            <div className="text-2xl font-bold text-white mt-1">{recentEvents.length}</div>
-            <span className="text-[11px] text-emerald-400">Tamper-evident log</span>
+        <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dispatched Files</span>
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+              <Send className="w-4 h-4" />
+            </div>
           </div>
-          <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
-            <Clock className="w-5 h-5" />
+          <div className="text-3xl font-extrabold text-slate-900 mt-2">{sentCount}</div>
+          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <span>Ciphertext blobs sent</span>
+          </div>
+        </div>
+
+        <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Key Vault</span>
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+              <KeyRound className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-base font-bold text-slate-900 mt-3 flex items-center gap-1.5">
+            {isKeyUnlocked ? (
+              <span className="text-emerald-700 flex items-center gap-1.5">
+                <Unlock className="w-4 h-4 text-emerald-600" />
+                Unlocked in RAM
+              </span>
+            ) : hasLocalKey ? (
+              <span className="text-slate-700 flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-slate-500" />
+                Protected (Locked)
+              </span>
+            ) : (
+              <span className="text-amber-700">Missing Key</span>
+            )}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">PBKDF2-SHA-256 + AES-GCM</div>
+        </div>
+
+        <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Audit Trail</span>
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-slate-900 mt-2">{recentEvents.length}</div>
+          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Tamper-evident logs</span>
           </div>
         </div>
       </div>
 
-      {/* Main Two-Column Layout */}
+      {/* Two Column Layout (Full Page, Clean Tables) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left: Recent Files */}
-        <div className="lg:col-span-7 bg-[#111827] border border-slate-800 rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Recent Inbox Deliveries Table */}
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-slate-100 text-base">Recent Inbox Deliveries</h3>
-              <p className="text-xs text-slate-400">Encrypted files awaiting recipient decryption</p>
+              <h3 className="font-bold text-slate-900 text-sm">Recent Inbox Deliveries</h3>
+              <p className="text-xs text-slate-500">Awaiting client-side recipient decryption</p>
             </div>
-            <Link to="/inbox" className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
-              <span>View all</span>
+            <Link to="/inbox" className="text-xs text-sky-700 font-semibold hover:text-sky-800 flex items-center gap-1">
+              <span>View all files</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           {recentFiles.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 text-xs">
-              <FileText className="w-8 h-8 mx-auto mb-2 opacity-40 stroke-1" />
+            <div className="py-12 text-center text-slate-400 text-xs">
+              <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 stroke-1" />
               <p>No files in your inbox yet.</p>
-              <p className="mt-1 text-[11px]">Share a file with Bob Recipient to test delivery.</p>
+              <p className="text-slate-400 mt-0.5">Switch to Alice (Sender) to share an encrypted file.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y divide-slate-100">
               {recentFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="p-3.5 bg-slate-900/60 border border-slate-800/80 rounded-2xl flex items-center justify-between"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-sky-500/10 text-sky-400 rounded-xl">
+                <div key={file.id} className="py-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="p-2 bg-slate-100 rounded-lg text-slate-700 shrink-0">
                       <FileText className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold text-slate-200">{file.original_filename}</div>
-                      <div className="text-[11px] text-slate-400">
-                        From: {file.sender_name || file.sender_email} • {(file.file_size / 1024).toFixed(1)} KB
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-900 break-words-anywhere">{file.original_filename}</div>
+                      <div className="text-[11px] text-slate-500 truncate max-w-sm">
+                        Sender: {file.sender_name || file.sender_email} • {(file.file_size / 1024).toFixed(1)} KB
                       </div>
                     </div>
                   </div>
                   <Link
                     to="/inbox"
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition-colors"
+                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-medium shrink-0 transition-colors"
                   >
                     Decrypt
                   </Link>
@@ -239,36 +230,36 @@ export const DashboardPage: React.FC = () => {
           )}
         </div>
 
-        {/* Right: Security Audit Timeline */}
-        <div className="lg:col-span-5 bg-[#111827] border border-slate-800 rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Security Audit Feed */}
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-slate-100 text-base">Security Audit Stream</h3>
-              <p className="text-xs text-slate-400">Live cryptographic verification events</p>
+              <h3 className="font-bold text-slate-900 text-sm">Security Audit Stream</h3>
+              <p className="text-xs text-slate-500">Live cryptographic verification events</p>
             </div>
-            <Link to="/security" className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+            <Link to="/security" className="text-xs text-sky-700 font-semibold hover:text-sky-800 flex items-center gap-1">
               <span>Security Center</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {recentEvents.map((evt) => (
-              <div key={evt.id} className="p-3 bg-slate-900/40 border border-slate-800 rounded-xl text-xs">
-                <div className="flex items-center justify-between mb-1">
+              <div key={evt.id} className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl text-xs space-y-1">
+                <div className="flex items-center justify-between">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    evt.result === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                    evt.result === 'DENIED' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                    'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    evt.result === 'SUCCESS' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+                    evt.result === 'DENIED' ? 'bg-rose-50 text-rose-800 border border-rose-200' :
+                    'bg-slate-100 text-slate-700 border border-slate-200'
                   }`}>
                     {evt.result}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
+                  <span className="text-[10px] text-slate-400 font-mono">
                     {new Date(evt.created_at).toLocaleTimeString()}
                   </span>
                 </div>
-                <div className="font-medium text-slate-200 text-xs">{evt.event_type}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                <div className="font-semibold text-slate-800 break-words-anywhere">{evt.event_type}</div>
+                <div className="text-[11px] text-slate-500 break-words-anywhere">
                   Actor: {evt.actor_email || 'system'}
                 </div>
               </div>

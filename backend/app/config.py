@@ -58,3 +58,4 @@ class TestConfig(Config):
     STORAGE_TYPE = "local"
     LOCAL_STORAGE_DIR = BASE_DIR / "storage" / "test_blobs"
     LOCAL_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+

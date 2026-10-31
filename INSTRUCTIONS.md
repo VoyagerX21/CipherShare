@@ -50,6 +50,7 @@ npm --prefix frontend run dev
 ```
 - Available at `http://localhost:5173`.
 - Proxies `/api` requests automatically to `http://127.0.0.1:5000`.
+- Features classic light theme with persistent left sidebar, live key vault widget, 1-click persona switcher, full-width screen utilization, and large filename text wrapping.
 
 ---
 
@@ -109,3 +110,4 @@ curl -X POST http://127.0.0.1:5000/api/v1/demo/reset
   Each browser session stores private keys in its own local IndexedDB. Click "Setup Key Pair" to generate a 3072-bit key pair in that specific browser.
 - **Node.js EPERM errors on Windows**:
   Run `npm install` directly inside `frontend` using administrative privileges or ensure no file locks are held on `node_modules`.
+

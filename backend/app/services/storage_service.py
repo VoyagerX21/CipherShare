@@ -163,3 +163,4 @@ def get_storage_service() -> BaseStorageService:
         bucket = current_app.config.get('SUPABASE_BUCKET', 'ciphershare-encrypted-files')
         return SupabaseStorageService(url, key, bucket, fallback_local=local_service)
     return local_service
+

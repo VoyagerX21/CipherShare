@@ -19,3 +19,4 @@ def health():
             'key_derivation': 'PBKDF2-SHA256 / Argon2id'
         }
     }), 200
+
