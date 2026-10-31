@@ -8,22 +8,19 @@ export default {
     extend: {
       colors: {
         classic: {
-          bg: '#f8fafc',
-          surface: '#ffffff',
-          surfaceHover: '#f1f5f9',
-          border: '#e2e8f0',
-          borderStrong: '#cbd5e1',
-          navy: '#0f172a',
-          navyLight: '#1e293b',
-          primary: '#2563eb',
-          primaryHover: '#1d4ed8',
-          accent: '#4f46e5',
-          muted: '#64748b',
-          subtle: '#94a3b8'
+          bg: '#ffffff',
+          subtleBg: '#fafafa',
+          hoverBg: '#f5f5f5',
+          border: '#e5e7eb',
+          hairline: '#eeeeee',
+          text: '#111827',
+          muted: '#6b7280',
+          faint: '#9ca3af'
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
       }
     },

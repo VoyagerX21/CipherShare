@@ -4,31 +4,30 @@
 
 @layer base {
   body {
-    @apply bg-[#f8fafc] text-slate-800 antialiased font-sans;
+    @apply bg-white text-slate-900 antialiased font-sans;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Classic refined scrollbars */
+/* Minimalist classic hairline scrollbar */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #cbd5e1;
 }
 
-/* Ensure all long file names and hashes wrap nicely anywhere */
 .break-words-anywhere {
   overflow-wrap: anywhere;
   word-break: break-word;

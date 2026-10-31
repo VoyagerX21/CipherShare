@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../features/auth/AuthContext';
-import { Lock, KeyRound, ShieldAlert, X } from 'lucide-react';
+import { Lock, ShieldAlert, X } from 'lucide-react';
 
 interface PassphraseModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ export const PassphraseModal: React.FC<PassphraseModalProps> = ({
   onClose,
   onSuccess,
   title = 'Unlock Private Key',
-  description = 'Enter your master passphrase to unlock your private key in memory for this operation.'
+  description = 'Enter your master passphrase to decrypt your private key into browser memory.'
 }) => {
   const { unlockKey } = useAuth();
   const [passphrase, setPassphrase] = useState('');
@@ -42,70 +42,58 @@ export const PassphraseModal: React.FC<PassphraseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-slate-100 text-slate-800 rounded-xl border border-slate-200">
-              <KeyRound className="w-5 h-5 text-sky-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">{title}</h3>
-              <p className="text-xs text-slate-500">{description}</p>
-            </div>
+    <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white border border-slate-300 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-xl">
+        <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 tracking-tight">{title}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{description}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl mb-4 flex items-start gap-2">
+          <div className="py-2.5 px-3 border-l-2 border-rose-600 bg-rose-50 text-rose-900 text-xs flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span className="break-words-anywhere">{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
               Master Passphrase
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-0 top-3" />
               <input
                 type="password"
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
-                placeholder="Enter passphrase to unlock"
+                placeholder="Enter passphrase"
                 autoFocus
-                className="w-full bg-white border border-slate-300 rounded-xl py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
+                className="w-full border-b border-slate-300 py-2.5 pl-7 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 bg-transparent"
                 required
               />
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2 pt-2">
+          <div className="flex justify-end space-x-4 pt-3 border-t border-slate-100 text-xs">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900"
+              className="font-medium text-slate-500 hover:text-slate-800"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isUnlocking}
-              className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50 flex items-center gap-2 shadow-sm"
+              className="py-2 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold tracking-wide disabled:opacity-50 transition-colors"
             >
-              {isUnlocking ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Unlocking...</span>
-                </>
-              ) : (
-                <span>Unlock Key</span>
-              )}
+              {isUnlocking ? 'Unlocking...' : 'Unlock Key'}
             </button>
           </div>
         </form>

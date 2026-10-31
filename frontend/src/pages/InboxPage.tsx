@@ -12,14 +12,11 @@ import {
   computeSHA256
 } from '../lib/crypto/webcrypto';
 import {
-  Inbox,
   Download,
   AlertTriangle,
-  FileText,
   CheckCircle2,
   AlertOctagon,
-  RefreshCw,
-  ShieldAlert
+  RefreshCw
 } from 'lucide-react';
 
 export const InboxPage: React.FC = () => {
@@ -104,7 +101,7 @@ export const InboxPage: React.FC = () => {
     const overallStart = performance.now();
 
     try {
-      // Step 1: Request Download Authorization from Backend
+      // Step 1: Authorization
       const step1Start = performance.now();
       addEvent({
         stageKey: 'auth_download',
@@ -125,12 +122,12 @@ export const InboxPage: React.FC = () => {
         }
       });
 
-      // Step 2: Download Ciphertext Blob from Storage
+      // Step 2: Download Ciphertext Blob
       const step2Start = performance.now();
       addEvent({
         stageKey: 'fetch_ciphertext',
-        title: 'Step 2: Retrieve Encrypted Ciphertext Blob',
-        description: 'Downloading raw encrypted binary payload from private cloud storage.',
+        title: 'Step 2: Download Ciphertext Payload',
+        description: 'Downloading raw encrypted binary payload from cloud object storage.',
         status: 'running'
       });
 
@@ -146,17 +143,13 @@ export const InboxPage: React.FC = () => {
         }
       });
 
-      // Step 3: Unwrap AES Key with RSA-OAEP Private Key
+      // Step 3: Unwrap AES Key
       const step3Start = performance.now();
       addEvent({
         stageKey: 'unwrap_aes_key',
-        title: 'Step 3: RSA-OAEP Private-Key AES Key Unwrapping',
+        title: 'Step 3: RSA-OAEP Key Unwrapping',
         description: 'Unwrapping recipient key envelope using local RSA-OAEP 3072 private key in Web Crypto.',
-        status: 'running',
-        metadata: {
-          algorithm: 'RSA-OAEP-SHA256',
-          recipientEnvelopePresent: true
-        }
+        status: 'running'
       });
 
       const aesKey = await unwrapAESKeyWithPrivateKey(
@@ -168,19 +161,18 @@ export const InboxPage: React.FC = () => {
         status: 'success',
         durationMs: Math.round(performance.now() - step3Start),
         metadata: {
-          recoveredKeyType: 'AES-256-GCM',
-          keyExtractable: true
+          recoveredKeyType: 'AES-256-GCM'
         }
       });
 
-      // Step 4: Reconstruct Canonical AAD and Nonce
+      // Step 4: Reconstruct AAD & Nonce
       const step4Start = performance.now();
       const nonce = new Uint8Array(base64ToArrayBuffer(authData.nonce));
       const aad = createCanonicalAAD(authData.file_id, authData.sender_id, authData.crypto_version);
 
       addEvent({
         stageKey: 'prepare_aad',
-        title: 'Step 4: AAD Reconstruction & Nonce Verification',
+        title: 'Step 4: Canonical AAD Verification',
         description: 'Assembled canonical Additional Authenticated Data binding for tag verification.',
         status: 'success',
         durationMs: Math.round(performance.now() - step4Start),
@@ -190,7 +182,7 @@ export const InboxPage: React.FC = () => {
         }
       });
 
-      // Step 5: AES-256-GCM Decryption and Tag Authentication
+      // Step 5: AES-256-GCM Decryption
       const step5Start = performance.now();
       addEvent({
         stageKey: 'aes_gcm_decrypt',
@@ -223,7 +215,7 @@ export const InboxPage: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(downloadUrl);
 
-      // Step 7: Submit Client-Reported Decryption Audit Event
+      // Step 7: Submit Audit Event
       await api.files.reportDecryptionResult(file.id, { status: 'SUCCESS' });
 
       setFeedback({
@@ -258,7 +250,7 @@ export const InboxPage: React.FC = () => {
     try {
       addEvent({
         stageKey: 'tamper_start',
-        title: 'Tampering Demo: Altered Ciphertext Test',
+        title: 'Tampering Demo: In-Memory Alteration Test',
         description: 'Retrieving an in-memory bit-flipped copy of the ciphertext to test AES-GCM integrity rejection.',
         status: 'running'
       });
@@ -304,133 +296,116 @@ export const InboxPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div className="w-full space-y-10">
+      {/* Editorial Header */}
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Encrypted Inbox</h2>
+          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-400">
+            Inbound Deliveries
+          </span>
+          <h2 className="text-3xl font-normal text-slate-900 tracking-tight font-serif mt-1">
+            Encrypted Inbox
+          </h2>
           <p className="text-xs text-slate-500 mt-1">
             Files shared with you. Plaintext is only recoverable in this browser using your local private key.
           </p>
         </div>
         <button
           onClick={loadInbox}
-          className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl flex items-center gap-1.5 text-xs font-medium shadow-2xs transition-colors shrink-0"
+          className="text-xs font-semibold text-slate-900 hover:text-slate-600 flex items-center gap-1.5 transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Refresh List</span>
+          <span>Refresh</span>
         </button>
       </div>
 
       {feedback && (
-        <div className={`p-4 rounded-xl text-xs flex items-start gap-3 border ${
+        <div className={`py-3 px-4 border-l-2 text-xs flex items-start gap-3 ${
           feedback.type === 'success'
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            : 'bg-rose-50 border-rose-200 text-rose-900'
+            ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950'
+            : 'border-rose-600 bg-rose-50/70 text-rose-950'
         }`}>
           {feedback.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           ) : (
-            <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <AlertOctagon className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           )}
           <div className="min-w-0">
-            <div className="font-bold">{feedback.type === 'success' ? 'Operation Verified' : 'Cryptographic Alert'}</div>
-            <p className="mt-0.5 break-words-anywhere">{feedback.message}</p>
+            <span className="font-semibold">{feedback.type === 'success' ? 'Verification Passed: ' : 'Cryptographic Alert: '}</span>
+            <span className="break-words-anywhere">{feedback.message}</span>
           </div>
         </div>
       )}
 
       {!hasLocalKey && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-          <div className="min-w-0">
-            <strong>Local Private Key Missing:</strong> Your browser has no private key stored in IndexedDB. You cannot decrypt received files until your key pair is imported or established.
-          </div>
+        <div className="py-3 px-4 border-l-2 border-amber-500 bg-amber-50/60 text-xs text-amber-900 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>Local Private Key Missing:</strong> Your browser has no private key stored in IndexedDB. You cannot decrypt received deliveries.
+          </span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left: Files List */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        {/* Left Column: Open Deliveries List (No card box) */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider">
-            <span>Available Deliveries</span>
-            <span>{files.length} items</span>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-100 flex justify-between">
+            <span>Received Deliveries</span>
+            <span className="font-mono text-slate-500 font-normal">{files.length} available</span>
           </div>
 
           {isLoading ? (
-            <div className="py-12 text-center text-slate-400 text-xs">Loading received files...</div>
+            <div className="py-12 text-slate-400 text-xs font-mono">Loading inbox...</div>
           ) : files.length === 0 ? (
-            <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl text-slate-400 text-xs shadow-2xs">
-              <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 stroke-1" />
-              <p className="font-semibold text-slate-600">No files in your inbox yet.</p>
-              <p className="mt-0.5 text-slate-400">Log in as Alice (Sender) and share a file with this account.</p>
+            <div className="py-12 text-slate-400 text-xs space-y-1">
+              <p className="font-medium text-slate-700">No files in your inbox.</p>
+              <p className="text-slate-400">Log in as Alice (Sender) and share a file with this account.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="divide-y divide-slate-100">
               {files.map((file) => {
                 const isSelected = activeFile?.id === file.id;
                 return (
                   <div
                     key={file.id}
-                    className={`p-4 bg-white rounded-2xl border transition-all text-xs shadow-2xs ${
-                      isSelected
-                        ? 'border-slate-900 ring-1 ring-slate-900/10'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
+                    className={`py-4 space-y-2.5 transition-colors ${isSelected ? 'bg-slate-50/60 px-2' : ''}`}
                   >
-                    <div className="flex items-start justify-between gap-3 mb-2.5">
-                      <div className="flex items-start space-x-3 min-w-0">
-                        <div className="p-2 bg-slate-100 rounded-xl text-slate-700 shrink-0 mt-0.5">
-                          <FileText className="w-4 h-4" />
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="font-semibold text-slate-900 text-xs break-words-anywhere leading-snug">
+                          {file.original_filename}
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-900 text-sm break-words-anywhere leading-snug">
-                            {file.original_filename}
-                          </div>
-                          <div className="text-[11px] text-slate-500 break-words-anywhere mt-0.5">
-                            From: {file.sender_name || file.sender_email}
-                          </div>
+                        <div className="text-[11px] text-slate-500 break-words-anywhere font-mono">
+                          From: {file.sender_name || file.sender_email} • {(file.file_size / 1024).toFixed(1)} KB
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
-                        {(file.file_size / 1024).toFixed(1)} KB
+                      <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                        {file.encryption_algorithm}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 mb-3 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Encryption:</span>
-                        <span className="font-mono text-slate-800">{file.encryption_algorithm}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Key Wrapping:</span>
-                        <span className="font-mono text-slate-800">{file.key_wrapping_algorithm}</span>
-                      </div>
-                      <div className="flex justify-between items-baseline gap-2">
-                        <span className="shrink-0">Digest:</span>
-                        <span className="font-mono text-slate-500 text-[10px] break-words-anywhere">
-                          {file.ciphertext_sha256.substring(0, 20)}...
-                        </span>
-                      </div>
+                    <div className="text-[11px] font-mono text-slate-400 break-words-anywhere">
+                      Digest: {file.ciphertext_sha256.substring(0, 24)}...
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center space-x-4 pt-1">
                       <button
                         onClick={() => triggerDownloadAndDecrypt(file)}
                         disabled={isProcessing}
-                        className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center gap-1.5 shadow-xs transition-colors disabled:opacity-50"
+                        className="text-xs font-semibold text-slate-900 hover:text-slate-600 flex items-center gap-1.5 transition-colors disabled:opacity-40"
                       >
-                        <Download className="w-3.5 h-3.5 text-sky-400" />
+                        <Download className="w-3.5 h-3.5" />
                         <span>Download & Decrypt</span>
                       </button>
+
+                      <span className="text-slate-200">|</span>
 
                       <button
                         onClick={() => triggerTamperingDemo(file)}
                         disabled={isProcessing}
-                        className="px-3 py-2 rounded-xl text-xs font-medium bg-white hover:bg-rose-50 text-rose-700 border border-slate-200 hover:border-rose-200 transition-colors shrink-0"
-                        title="Simulate bit-flip tampering test"
+                        className="text-xs font-medium text-rose-700 hover:text-rose-900 transition-colors disabled:opacity-40"
                       >
-                        <span>Tamper Test</span>
+                        Tamper Test
                       </button>
                     </div>
                   </div>
@@ -440,7 +415,7 @@ export const InboxPage: React.FC = () => {
           )}
         </div>
 
-        {/* Right: Live Decryption Execution Monitor (Full Width) */}
+        {/* Right Column: Execution Monitor (Open, seamless) */}
         <div className="lg:col-span-7">
           <ExecutionMonitor
             events={events}

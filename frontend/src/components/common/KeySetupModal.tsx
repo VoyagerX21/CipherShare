@@ -8,7 +8,7 @@ import {
 } from '../../lib/crypto/webcrypto';
 import { saveLocalKeyBlob } from '../../lib/crypto/keyStore';
 import { api } from '../../lib/api/client';
-import { ShieldAlert, KeyRound, CheckCircle2, Lock, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle2, Lock, AlertTriangle, X } from 'lucide-react';
 
 interface KeySetupModalProps {
   isOpen: boolean;
@@ -84,141 +84,127 @@ export const KeySetupModal: React.FC<KeySetupModalProps> = ({ isOpen, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-xl">
+    <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white border border-slate-300 max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-xl">
         {step === 'prompt' ? (
-          <div>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-slate-100 text-slate-800 rounded-xl border border-slate-200">
-                  <KeyRound className="w-5 h-5 text-sky-600" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Setup Asymmetric Key Pair</h3>
-                  <p className="text-xs text-slate-500">RSA-OAEP 3072-bit Cryptographic Vault</p>
-                </div>
+          <div className="space-y-6">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 tracking-tight">
+                  Establish RSA-OAEP 3072-bit Key Vault
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Private keys are encrypted in IndexedDB and never transmitted to the server.
+                </p>
               </div>
               <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 text-xs text-slate-600 space-y-1.5">
-              <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                <ShieldAlert className="w-4 h-4 text-sky-600" />
-                <span>Zero-Knowledge Key Architecture</span>
-              </div>
+            <div className="border-l-2 border-slate-900 pl-4 py-1 text-xs text-slate-600 space-y-1">
+              <span className="font-semibold text-slate-900 block">Zero-Knowledge Key Architecture</span>
               <p>
-                Your browser generates a 3072-bit RSA pair. The <strong>public key</strong> is published so other users can encrypt content for you.
-              </p>
-              <p>
-                Your <strong>private key</strong> is encrypted locally in IndexedDB using PBKDF2 (600,000 iterations) + AES-GCM and <strong>never leaves your device</strong>.
+                The browser generates an asymmetric key pair. The <strong>public key</strong> is published for key envelopes. Your <strong>private key</strong> is encrypted locally using PBKDF2 (600,000 iterations) + AES-GCM and never leaves this machine.
               </p>
             </div>
 
             {error && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl mb-4">
+              <div className="py-2.5 px-3 border-l-2 border-rose-600 bg-rose-50 text-rose-900 text-xs">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleGenerateAndRegister} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Private Key Unlock Passphrase
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Private Key Passphrase
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-0 top-3" />
                   <input
                     type="password"
                     value={passphrase}
                     onChange={(e) => setPassphrase(e.target.value)}
-                    placeholder="Enter master passphrase"
-                    className="w-full bg-white border border-slate-300 rounded-xl py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
+                    placeholder="Enter master passphrase (min 8 chars)"
+                    className="w-full border-b border-slate-300 py-2.5 pl-7 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 bg-transparent"
                     required
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Confirm Passphrase
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-0 top-3" />
                   <input
                     type="password"
                     value={confirmPassphrase}
                     onChange={(e) => setConfirmPassphrase(e.target.value)}
                     placeholder="Confirm master passphrase"
-                    className="w-full bg-white border border-slate-300 rounded-xl py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
+                    className="w-full border-b border-slate-300 py-2.5 pl-7 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 bg-transparent"
                     required
                   />
                 </div>
               </div>
 
-              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-800 flex gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="border-l-2 border-amber-600 pl-3 py-1 text-[11px] text-amber-900 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Important:</strong> If you clear browser data without an exported key backup, previously shared files cannot be decrypted.
+                  <strong>Important:</strong> Clearing browser cache or storage without key material will permanently prevent recovering dispatches.
                 </span>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="flex justify-end space-x-4 pt-3 border-t border-slate-100 text-xs">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900"
+                  className="font-medium text-slate-500 hover:text-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isGenerating}
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50 flex items-center gap-2 shadow-sm"
+                  className="py-2 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold tracking-wide disabled:opacity-50 transition-colors"
                 >
-                  {isGenerating ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Generating 3072-bit Key...</span>
-                    </>
-                  ) : (
-                    <span>Generate & Register Key</span>
-                  )}
+                  {isGenerating ? 'Generating 3072-bit Key...' : 'Generate & Register Key'}
                 </button>
               </div>
             </form>
           </div>
         ) : (
-          <div className="text-center py-4 space-y-4">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200">
-              <CheckCircle2 className="w-6 h-6" />
+          <div className="space-y-6">
+            <div className="flex items-center space-x-2 text-emerald-700">
+              <CheckCircle2 className="w-5 h-5" />
+              <h3 className="text-base font-semibold text-slate-900">Key Pair Established</h3>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Key Pair Established!</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Your RSA-OAEP 3072-bit public key has been registered and the encrypted private key is safely stored in IndexedDB.
-              </p>
-            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Your RSA-OAEP 3072-bit public key has been registered on the server and the encrypted private key is safely preserved in local IndexedDB.
+            </p>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
-                Public Key Fingerprint (SHA-256)
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">
+                Public Key Fingerprint (RFC 7638 SHA-256)
               </span>
-              <span className="font-mono text-xs text-slate-800 break-words-anywhere select-all block mt-1">
+              <span className="font-mono text-xs text-slate-900 break-words-anywhere select-all block py-2 border-b border-slate-100">
                 {generatedFingerprint}
               </span>
             </div>
 
-            <button
-              onClick={() => {
-                onClose();
-                if (onSuccess) onSuccess();
-              }}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
-            >
-              Continue to Workspace
-            </button>
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  onClose();
+                  if (onSuccess) onSuccess();
+                }}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold tracking-wide transition-colors"
+              >
+                Continue to Workspace
+              </button>
+            </div>
           </div>
         )}
       </div>
