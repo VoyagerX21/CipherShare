@@ -59,7 +59,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { to: '/security', label: 'Security & Audit', icon: Clock },
     { to: '/playground', label: 'Playground', icon: Sparkles },
     { to: '/keys', label: 'Key Vault', icon: KeyRound },
-    { to: '/demo', label: 'Demo Presentation', icon: Users },
+    { to: '/demo', label: 'Live Demo Storyboard', icon: Sparkles },
   ];
 
   const handleQuickSwitch = async (email: string, pass: string) => {
