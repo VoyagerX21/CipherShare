@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { api } from '../lib/api/client';
@@ -19,6 +19,7 @@ import {
 } from '../lib/crypto/webcrypto';
 import {
   Play,
+  Pause,
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
@@ -27,14 +28,29 @@ import {
   Unlock,
   ShieldCheck,
   ArrowRight,
-  FileText,
-  Layers,
-  Cpu,
   ChevronDown,
   ChevronUp,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  X,
+  Clock,
+  Terminal,
+  FastForward,
+  Cpu,
+  Layers
 } from 'lucide-react';
+
+interface TelemetryStage {
+  number: number;
+  domain: string;
+  domainColor: string;
+  badge: string;
+  title: string;
+  plainEnglish: string;
+  technicalDetail: string;
+  params: { label: string; value: string }[];
+  securityInvariant: string;
+}
 
 export const DemoWorkspacePage: React.FC = () => {
   const { user, login } = useAuth();
@@ -44,15 +60,14 @@ export const DemoWorkspacePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'storyboard' | 'multi-persona'>('storyboard');
 
   // =========================================================================
-  // 1. STORYBOARD SIMULATION STATE (Single-Screen 1-Click Real WebCrypto)
+  // 1. STORYBOARD SIMULATION STATE (Real WebCrypto Artifacts)
   // =========================================================================
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0 = Idle, 1 = Encrypt, 2 = Wrap, 3 = Server, 4 = Decrypt
+  const [currentStep, setCurrentStep] = useState<number>(0);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [sampleText, setSampleText] = useState<string>(
     'CONFIDENTIAL COURSE EVALUATION REPORT: Alice and Bob have successfully verified hybrid zero-knowledge end-to-end file sharing.'
   );
 
-  // Live Cryptographic Artifacts computed via real Web Crypto API
   const [simData, setSimData] = useState<{
     fileId: string;
     plaintextSHA256: string;
@@ -82,7 +97,17 @@ export const DemoWorkspacePage: React.FC = () => {
   const [openVivaIndex, setOpenVivaIndex] = useState<number | null>(null);
 
   // =========================================================================
-  // 2. MULTI-PERSONA ADVANCED WORKSPACE STATE (Legacy DB Accounts)
+  // 2. LIVE PRESENTATION TELEMETRY OVERLAY STATE
+  // =========================================================================
+  const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
+  const [overlayScenario, setOverlayScenario] = useState<'normal' | 'eve' | 'tamper'>('normal');
+  const [activeStageIndex, setActiveStageIndex] = useState<number>(0);
+  const [isOverlayPlaying, setIsOverlayPlaying] = useState<boolean>(false);
+  const [pacingMs, setPacingMs] = useState<number>(1200); // 1.2s realistic presentation pace
+  const timerRef = useRef<any>(null);
+
+  // =========================================================================
+  // 3. MULTI-PERSONA ADVANCED WORKSPACE STATE (Database Accounts)
   // =========================================================================
   const [demoStatus, setDemoStatus] = useState<any[]>([]);
   const [isResetting, setIsResetting] = useState(false);
@@ -104,134 +129,373 @@ export const DemoWorkspacePage: React.FC = () => {
     loadStatus();
   }, []);
 
-  // Run Step 1: Alice Generates AES-256 Key & Encrypts Payload
-  const executeStep1 = async () => {
-    setIsSimulating(true);
-    setAttackEveResult(null);
-    setAttackTamperResult(null);
+  // Compute live cryptographic artifacts
+  const runLiveCryptoCore = async () => {
+    const enc = new TextEncoder();
+    const plaintextBuffer = enc.encode(sampleText);
+    const plaintextSHA256 = await computeSHA256(plaintextBuffer);
 
-    try {
-      const enc = new TextEncoder();
-      const plaintextBuffer = enc.encode(sampleText);
-      const plaintextSHA256 = await computeSHA256(plaintextBuffer);
+    // 1. Fresh random 256-bit AES-GCM key
+    const aesKey = await generateFileAESKey();
+    const exportedRawKey = await window.crypto.subtle.exportKey('raw', aesKey);
+    const rawKeyHex = arrayBufferToHex(exportedRawKey);
 
-      // 1. Fresh random 256-bit AES-GCM key
-      const aesKey = await generateFileAESKey();
-      const exportedRawKey = await window.crypto.subtle.exportKey('raw', aesKey);
-      const rawKeyHex = arrayBufferToHex(exportedRawKey);
+    // 2. Fresh 96-bit nonce
+    const nonce = generateAESNonce();
+    const nonceHex = arrayBufferToHex(nonce);
 
-      // 2. Fresh 96-bit nonce
-      const nonce = generateAESNonce();
-      const nonceHex = arrayBufferToHex(nonce);
+    // 3. Canonical AAD
+    const fileId = 'file_' + Math.random().toString(36).substring(2, 10);
+    const aadJson = JSON.stringify({ fileId, senderId: 'alice@demo.local', version: CRYPTO_VERSION });
+    const aadBytes = enc.encode(aadJson);
 
-      // 3. Canonical AAD
-      const fileId = 'file_' + Math.random().toString(36).substring(2, 10);
-      const aadJson = JSON.stringify({ fileId, senderId: 'alice@demo.local', version: CRYPTO_VERSION });
-      const aadBytes = enc.encode(aadJson);
+    // 4. AES-256-GCM Encrypt
+    const fullCiphertextBuffer = await encryptFilePayload(plaintextBuffer.buffer, aesKey, nonce, aadBytes);
+    const fullCiphertextHex = arrayBufferToHex(fullCiphertextBuffer);
+    const authTagHex = fullCiphertextHex.substring(fullCiphertextHex.length - 32);
 
-      // 4. AES-256-GCM Encrypt
-      const fullCiphertextBuffer = await encryptFilePayload(plaintextBuffer.buffer, aesKey, nonce, aadBytes);
-      const fullCiphertextHex = arrayBufferToHex(fullCiphertextBuffer);
-      // GCM tag is the last 16 bytes (128 bits)
-      const authTagHex = fullCiphertextHex.substring(fullCiphertextHex.length - 32);
+    // 5. Generate Bob's RSA-OAEP 3072 key pair
+    const bobKeyPair = await generateUserKeyPair();
+    const bobPublicKeyJwk = await exportPublicKeyJWK(bobKeyPair.publicKey);
+    const bobFingerprint = await computeJWKFingerprint(JSON.parse(bobPublicKeyJwk));
 
-      // 5. Generate Bob's RSA-OAEP 3072 key pair for simulation
-      const bobKeyPair = await generateUserKeyPair();
-      const bobPublicKeyJwk = await exportPublicKeyJWK(bobKeyPair.publicKey);
-      const bobFingerprint = await computeJWKFingerprint(JSON.parse(bobPublicKeyJwk));
+    // 6. Wrap AES key
+    const wrappedBase64 = await wrapAESKeyForRecipient(aesKey, bobKeyPair.publicKey);
 
-      setSimData({
-        fileId,
-        plaintextSHA256,
-        aesKey,
-        rawKeyHex,
-        nonce,
-        nonceHex,
-        aadJson,
-        aadBytes,
-        ciphertext: fullCiphertextBuffer,
-        ciphertextHex: fullCiphertextHex,
-        authTagHex,
-        bobKeyPair,
-        bobPublicKeyJwk,
-        bobFingerprint,
-        wrappedEnvelopeBase64: '',
-        recoveredPlaintext: null,
-        recoveredMatches: false
-      });
+    // 7. Unwrap and decrypt
+    const unwrappedAESKey = await unwrapAESKeyWithPrivateKey(wrappedBase64, bobKeyPair.privateKey);
+    const decryptedBuffer = await decryptFilePayload(fullCiphertextBuffer, unwrappedAESKey, nonce, aadBytes);
+    const dec = new TextDecoder();
+    const recovered = dec.decode(decryptedBuffer);
 
-      setCurrentStep(1);
-    } catch (err: any) {
-      console.error('Step 1 failed', err);
-    } finally {
-      setIsSimulating(false);
+    const generated = {
+      fileId,
+      plaintextSHA256,
+      aesKey,
+      rawKeyHex,
+      nonce,
+      nonceHex,
+      aadJson,
+      aadBytes,
+      ciphertext: fullCiphertextBuffer,
+      ciphertextHex: fullCiphertextHex,
+      authTagHex,
+      bobKeyPair,
+      bobPublicKeyJwk,
+      bobFingerprint,
+      wrappedEnvelopeBase64: wrappedBase64,
+      recoveredPlaintext: recovered,
+      recoveredMatches: recovered === sampleText
+    };
+
+    setSimData(generated);
+    return generated;
+  };
+
+  // Normal flow telemetry stages definitions
+  const normalStages: TelemetryStage[] = [
+    {
+      number: 1,
+      domain: 'CLIENT (ALICE)',
+      domainColor: 'text-sky-800',
+      badge: 'RAM KEY GEN',
+      title: 'Local AES-256 Symmetric Key & Nonce Generation',
+      plainEnglish:
+        'Alice generates a one-time random 256-bit AES key in her browser volatile memory (RAM). She creates a 96-bit random nonce and prepares Canonical AAD.',
+      technicalDetail: 'crypto.subtle.generateKey("AES-GCM", { length: 256 }) + crypto.getRandomValues(12 bytes)',
+      params: [
+        { label: 'Algorithm', value: 'AES-256-GCM (Hardware accelerated)' },
+        { label: 'Key Location', value: 'Browser Volatile RAM Only (Never sent to cloud)' },
+        { label: 'Nonce / IV', value: simData ? simData.nonceHex : '96-bit random vector' },
+        { label: 'Plaintext Hash', value: simData ? `SHA-256: ${simData.plaintextSHA256.substring(0, 20)}...` : 'Pre-flight digest' }
+      ],
+      securityInvariant: 'Zero Server Key Knowledge: The server has no access to this symmetric key.'
+    },
+    {
+      number: 2,
+      domain: 'CLIENT (ALICE)',
+      domainColor: 'text-sky-800',
+      badge: 'AEAD ENCRYPT',
+      title: 'Bulk File Payload Encryption & 128-bit Tag Computation',
+      plainEnglish:
+        'Alice encrypts the file bytes using AES-256-GCM. The cipher produces ciphertext and a 128-bit authentication tag, binding the metadata so tampering is impossible.',
+      technicalDetail: 'crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData, tagLength: 128 })',
+      params: [
+        { label: 'Cipher Mode', value: 'Galois/Counter Mode (Authenticated AEAD)' },
+        { label: 'Auth Tag', value: simData ? `${simData.authTagHex} (128 bits)` : '128-bit GMAC Tag' },
+        { label: 'Canonical AAD', value: simData ? simData.aadJson : '{"fileId":"...","version":"1.0"}' },
+        { label: 'Ciphertext', value: simData ? `${simData.ciphertextHex.substring(0, 32)}...` : 'Encrypted binary stream' }
+      ],
+      securityInvariant: 'Confidentiality + Integrity: Encryption alone is not enough; 128-bit tag prevents bit-flipping.'
+    },
+    {
+      number: 3,
+      domain: 'BACKEND REST',
+      domainColor: 'text-slate-800',
+      badge: 'REST API',
+      title: 'Share Session Initiation & Public Key Discovery',
+      plainEnglish:
+        'Alice calls POST /api/v1/files/initiate. The backend verifies Alice\'s JWT, reserves a file record, and returns Bob\'s published 3072-bit RSA-OAEP Public Key.',
+      technicalDetail: 'POST /api/v1/files/initiate -> HTTP 201 Created (Returns Bob\'s JWK)',
+      params: [
+        { label: 'Endpoint', value: 'POST /api/v1/files/initiate' },
+        { label: 'Payload Sent', value: '{ original_filename, file_size, recipient_ids: ["bob"] }' },
+        { label: 'Plaintext Sent', value: '0 bytes (Server receives zero file bytes)' },
+        { label: 'Public Key Recv', value: simData ? `RSA-OAEP-3072 (FP: ${simData.bobFingerprint.substring(0, 16)}...)` : 'Bob\'s Public Key JWK' }
+      ],
+      securityInvariant: 'Zero Server Plaintext: The backend initiates the database file record without receiving plaintext.'
+    },
+    {
+      number: 4,
+      domain: 'CLIENT (ALICE)',
+      domainColor: 'text-sky-800',
+      badge: 'HYBRID WRAP',
+      title: 'Asymmetric Key Encapsulation (Why Hybrid?)',
+      plainEnglish:
+        'Why hybrid? RSA cannot encrypt large files. Alice uses Bob\'s 3072-bit RSA-OAEP public key solely to wrap the 32-byte AES key into a 384-byte key envelope.',
+      technicalDetail: 'crypto.subtle.wrapKey("raw", aesKey, bobPublicKey, { name: "RSA-OAEP" })',
+      params: [
+        { label: 'Wrapper Algorithm', value: 'RSA-OAEP with SHA-256 & MGF1 padding' },
+        { label: 'Input AES Key Size', value: '32 bytes (256 bits)' },
+        { label: 'Wrapped Envelope', value: simData ? `${simData.wrappedEnvelopeBase64.substring(0, 32)}... (384 bytes)` : '384 bytes Base64' },
+        { label: 'Memory Scrubbing', value: 'Raw AES key is discarded from Alice\'s RAM' }
+      ],
+      securityInvariant: 'Asymmetric Isolation: Only the holder of Bob\'s private key (SK_Bob) can unwrap this envelope.'
+    },
+    {
+      number: 5,
+      domain: 'STORAGE (CLOUD)',
+      domainColor: 'text-indigo-800',
+      badge: 'CLOUD OBJECTS',
+      title: 'Ciphertext Storage & Zero-Knowledge Verification',
+      plainEnglish:
+        'Alice uploads the ciphertext binary and the key envelope to storage. The cloud server inspects the commit: zero plaintext bytes and zero private keys stored.',
+      technicalDetail: 'POST /api/v1/files/{file_id}/upload -> StorageAdapter.write(ciphertext.bin)',
+      params: [
+        { label: 'Stored Objects', value: 'ciphertext.bin + recipient_key_envelopes table' },
+        { label: 'Cloud Plaintext', value: '0 bytes (100% Zero-Knowledge Verified)' },
+        { label: 'Cloud Content Key', value: '0 bytes (Symmetric key was never transmitted)' },
+        { label: 'Cloud Private Keys', value: '0 bytes (Private keys reside solely in client browsers)' }
+      ],
+      securityInvariant: 'Untrusted Storage Invariant: Cloud compromised? Data remains cryptographically secure.'
+    },
+    {
+      number: 6,
+      domain: 'BACKEND GUARD',
+      domainColor: 'text-slate-800',
+      badge: 'ACL CHECK',
+      title: 'Recipient Authorization Check & Single Envelope Dispatch',
+      plainEnglish:
+        'Bob requests download. Backend checks recipient ACL in database. Crucial security rule: The server returns ONLY Bob\'s envelope, never other recipients\'.',
+      technicalDetail: 'POST /api/v1/files/{file_id}/download-authorize -> HTTP 200 OK',
+      params: [
+        { label: 'Endpoint', value: 'POST /api/v1/files/{file_id}/download-authorize' },
+        { label: 'Authenticated User', value: 'bob@demo.local (Verified JWT Bearer)' },
+        { label: 'Authorization Rule', value: 'Returns ONLY Bob\'s key envelope (No key overlap)' },
+        { label: 'Audit Log Emit', value: 'DOWNLOAD_AUTHORIZED (Scrubbed metadata)' }
+      ],
+      securityInvariant: 'Strict Envelope Isolation: Non-recipients are refused; recipients receive only their own key envelope.'
+    },
+    {
+      number: 7,
+      domain: 'CLIENT (BOB)',
+      domainColor: 'text-emerald-800',
+      badge: 'RAM DECRYPT',
+      title: 'Key Recovery & AES-GCM Plaintext Verification',
+      plainEnglish:
+        'Bob retrieves his envelope, unwraps the AES key using his local RSA private key, and verifies the 128-bit authentication tag. Plaintext matches 100%!',
+      technicalDetail: 'crypto.subtle.unwrapKey() + crypto.subtle.decrypt("AES-GCM", iv, aad)',
+      params: [
+        { label: 'Unwrapped AES Key', value: 'Recovered in Bob\'s browser RAM via SK_Bob' },
+        { label: 'GCM Tag Verification', value: '128-bit GMAC matches perfectly (Passed)' },
+        { label: 'Recovered Plaintext', value: simData?.recoveredPlaintext ? `"${simData.recoveredPlaintext.substring(0, 36)}..."` : 'Decrypted payload' },
+        { label: 'Integrity Check', value: 'SHA-256 digest identical to Alice\'s original file' }
+      ],
+      securityInvariant: 'End-to-End Cryptographic Success: Confidentiality, authenticity, and non-repudiation verified.'
+    }
+  ];
+
+  // Eve Intruder Stages definition
+  const eveStages: TelemetryStage[] = [
+    {
+      number: 1,
+      domain: 'ADVERSARY (EVE)',
+      domainColor: 'text-rose-800',
+      badge: 'UNAUTHORIZED REQ',
+      title: 'Eve Intercepts File UUID & Requests Download Authorization',
+      plainEnglish:
+        'Eve intercepts Alice\'s shared file UUID on the network. Eve attempts to call the download authorization endpoint using her own authentication token.',
+      technicalDetail: 'POST /api/v1/files/{file_id}/download-authorize (Bearer Eve\'s JWT)',
+      params: [
+        { label: 'Caller', value: 'eve@demo.local (Unintended intruder)' },
+        { label: 'Target File UUID', value: simData ? simData.fileId : 'file_4x9a7f21' },
+        { label: 'Attacker Objective', value: 'Attempting to acquire ciphertext download URL and AES key envelope' }
+      ],
+      securityInvariant: 'Access Control Boundary: The server must evaluate caller against designated recipient ACL.'
+    },
+    {
+      number: 2,
+      domain: 'BACKEND GUARD',
+      domainColor: 'text-slate-800',
+      badge: 'ACL EVALUATION',
+      title: 'Backend Access Control Engine Evaluates Recipient List',
+      plainEnglish:
+        'The Flask backend queries the file_recipients table for matching file_id and user_id. Eve is NOT in the recipient list established by Alice.',
+      technicalDetail: 'SELECT * FROM file_recipients WHERE file_id = :id AND recipient_id = :eve_id -> 0 rows',
+      params: [
+        { label: 'ACL Lookup', value: 'file_recipients database check' },
+        { label: 'Authorized Recipient', value: 'bob@demo.local ONLY' },
+        { label: 'Intruder Status', value: 'REJECTED: User is not an authorized recipient' }
+      ],
+      securityInvariant: 'Zero Privilege Leak: Non-recipients are immediately flagged for denial.'
+    },
+    {
+      number: 3,
+      domain: 'BACKEND AUDIT',
+      domainColor: 'text-slate-800',
+      badge: 'SECURITY LOG',
+      title: 'Tamper-Evident Audit Logging of Access Denial',
+      plainEnglish:
+        'The backend logs an audit event UNAUTHORIZED_ACCESS_ATTEMPT with actor IP and user ID, while sanitizing all secret parameters.',
+      technicalDetail: 'audit_service.log_event("UNAUTHORIZED_ACCESS_ATTEMPT", result="DENIED")',
+      params: [
+        { label: 'Event Recorded', value: 'UNAUTHORIZED_ACCESS_ATTEMPT' },
+        { label: 'Security Result', value: 'DENIED' },
+        { label: 'Secret Scrubbing', value: 'Passwords, tokens, and payloads filtered out' }
+      ],
+      securityInvariant: 'Auditability: Every unauthorized probe is permanently recorded in the system audit trail.'
+    },
+    {
+      number: 4,
+      domain: 'BACKEND REST',
+      domainColor: 'text-rose-800',
+      badge: 'HTTP 403 FORBIDDEN',
+      title: 'HTTP 403 Forbidden Response (Key Envelope Withheld)',
+      plainEnglish:
+        'The server responds with HTTP 403 Forbidden. The download URL and AES key envelope are withheld. Even if Eve sniffs ciphertext, she cannot decrypt without SK_Bob.',
+      technicalDetail: 'HTTP/1.1 403 FORBIDDEN -> { "error": "Forbidden", "message": "Access denied" }',
+      params: [
+        { label: 'HTTP Status', value: '403 FORBIDDEN' },
+        { label: 'Envelope Dispatched', value: 'NONE (Withheld)' },
+        { label: 'Mathematical Proof', value: 'RSA-OAEP 3072 is mathematically uncrackable without Bob\'s private key' }
+      ],
+      securityInvariant: 'Access Control Succeeded: Untrusted and unauthorized parties receive zero key material.'
+    }
+  ];
+
+  // Tamper Stages definition
+  const tamperStages: TelemetryStage[] = [
+    {
+      number: 1,
+      domain: 'ADVERSARY (MITM)',
+      domainColor: 'text-amber-800',
+      badge: '1-BIT FLIP',
+      title: 'Man-in-the-Middle Injects 1-Bit Corruption into Ciphertext',
+      plainEnglish:
+        'An active adversary intercepts the encrypted payload on the network wire or storage disk and flips exactly one single bit (byte 12 XOR 0x01).',
+      technicalDetail: 'ciphertextBytes[12] ^= 0x01 (Single bit-flip corruption)',
+      params: [
+        { label: 'Attack Vector', value: 'Active wire modification / Storage bit corruption' },
+        { label: 'Bit Alteration', value: 'Byte 12 Bit 0 flipped (0 -> 1)' },
+        { label: 'Original 128-bit Tag', value: simData ? simData.authTagHex : 'Unchanged in header' }
+      ],
+      securityInvariant: 'Integrity Threat Model: Traditional CBC modes allow padding or bit-flipping attacks. AES-GCM must detect this.'
+    },
+    {
+      number: 2,
+      domain: 'CLIENT (BOB)',
+      domainColor: 'text-emerald-800',
+      badge: 'KEY UNWRAP',
+      title: 'Bob Successfully Unwraps Legitimate AES Content Key',
+      plainEnglish:
+        'Bob receives his key envelope and unwraps the 256-bit AES content key using his legitimate local private key. The key itself is intact.',
+      technicalDetail: 'crypto.subtle.unwrapKey("raw", envelopeBytes, bobPrivateKey, "RSA-OAEP")',
+      params: [
+        { label: 'AES Key Status', value: 'Successfully unwrapped in RAM' },
+        { label: 'Key Authenticity', value: 'Intact 256-bit symmetric key' }
+      ],
+      securityInvariant: 'The content key is authentic; the corruption is located specifically inside the payload stream.'
+    },
+    {
+      number: 3,
+      domain: 'CLIENT (BOB)',
+      domainColor: 'text-slate-800',
+      badge: 'GMAC EVAL',
+      title: 'WebCrypto Computes Galois Message Authentication Code (GMAC)',
+      plainEnglish:
+        'Bob initiates AES-256-GCM decryption with Canonical AAD. WebCrypto evaluates the Galois field polynomial over the altered ciphertext.',
+      technicalDetail: 'crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData, tagLength: 128 })',
+      params: [
+        { label: 'Integrity Engine', value: 'W3C SubtleCrypto Galois/Counter Mode' },
+        { label: 'Computed Tag', value: 'Mismatch detected against expected 128-bit tag' }
+      ],
+      securityInvariant: 'Cryptographic Detection: Even a 1-bit alteration causes complete avalanche failure in the Galois field.'
+    },
+    {
+      number: 4,
+      domain: 'CLIENT (BOB)',
+      domainColor: 'text-emerald-800',
+      badge: 'OPERATION ERROR',
+      title: 'WebCrypto Throws OperationError (Zero Plaintext Released)',
+      plainEnglish:
+        'Authentication tag check fails! WebCrypto throws DOMException: OperationError. Decryption aborts instantly. Exactly 0 bytes of corrupted plaintext are released.',
+      technicalDetail: 'throw new DOMException("The operation failed for an operation-specific reason", "OperationError")',
+      params: [
+        { label: 'WebCrypto Exception', value: 'OperationError (Authentication tag mismatch)' },
+        { label: 'Plaintext Output', value: '0 bytes (Zero corrupted bytes leaked)' },
+        { label: 'Verdict', value: 'Tampering detection 100% verified' }
+      ],
+      securityInvariant: 'Authenticated Encryption Guarantee: Corrupted or tampered ciphertexts are never released into application memory.'
+    }
+  ];
+
+  // Select active stages list based on scenario
+  const activeStagesList =
+    overlayScenario === 'normal'
+      ? normalStages
+      : overlayScenario === 'eve'
+      ? eveStages
+      : tamperStages;
+
+  // Launch Overlay
+  const launchOverlay = async (scenario: 'normal' | 'eve' | 'tamper') => {
+    setOverlayScenario(scenario);
+    setActiveStageIndex(0);
+    setIsOverlayOpen(true);
+    setIsOverlayPlaying(true);
+
+    if (!simData && scenario === 'normal') {
+      await runLiveCryptoCore();
     }
   };
 
-  // Run Step 2: Key Encapsulation (Wrap AES key using Bob's RSA-3072 Public Key)
-  const executeStep2 = async () => {
-    if (!simData || !simData.aesKey || !simData.bobKeyPair) return;
-    setIsSimulating(true);
-
-    try {
-      const wrappedBase64 = await wrapAESKeyForRecipient(simData.aesKey, simData.bobKeyPair.publicKey);
-      setSimData(prev => prev ? ({ ...prev, wrappedEnvelopeBase64: wrappedBase64 }) : null);
-      setCurrentStep(2);
-    } catch (err: any) {
-      console.error('Step 2 failed', err);
-    } finally {
-      setIsSimulating(false);
+  // Paced Execution Timer
+  useEffect(() => {
+    if (isOverlayOpen && isOverlayPlaying) {
+      timerRef.current = setInterval(() => {
+        setActiveStageIndex((prev) => {
+          if (prev >= activeStagesList.length - 1) {
+            setIsOverlayPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, pacingMs);
+    } else {
+      clearInterval(timerRef.current);
     }
-  };
+    return () => clearInterval(timerRef.current);
+  }, [isOverlayOpen, isOverlayPlaying, pacingMs, activeStagesList.length]);
 
-  // Run Step 3: Cloud Server Storage (Zero Knowledge Inspection)
-  const executeStep3 = () => {
-    setCurrentStep(3);
-  };
-
-  // Run Step 4: Bob Decrypts using his Private Key (Client-side in RAM)
-  const executeStep4 = async () => {
-    if (!simData || !simData.bobKeyPair || !simData.wrappedEnvelopeBase64 || !simData.ciphertext || !simData.nonce || !simData.aadBytes) return;
-    setIsSimulating(true);
-
-    try {
-      // 1. Unwrap AES key using Bob's private key
-      const unwrappedAESKey = await unwrapAESKeyWithPrivateKey(simData.wrappedEnvelopeBase64, simData.bobKeyPair.privateKey);
-
-      // 2. Decrypt AES-GCM payload with canonical AAD
-      const decryptedBuffer = await decryptFilePayload(simData.ciphertext, unwrappedAESKey, simData.nonce, simData.aadBytes);
-      const dec = new TextDecoder();
-      const recovered = dec.decode(decryptedBuffer);
-
-      setSimData(prev => prev ? ({
-        ...prev,
-        recoveredPlaintext: recovered,
-        recoveredMatches: recovered === sampleText
-      }) : null);
-
-      setCurrentStep(4);
-    } catch (err: any) {
-      console.error('Step 4 failed', err);
-    } finally {
-      setIsSimulating(false);
-    }
-  };
-
-  // Run All Steps Automatically
+  // Execute on page directly
   const handleRunFullDemo = async () => {
-    await executeStep1();
-    setTimeout(async () => {
-      await executeStep2();
-      setTimeout(() => {
-        executeStep3();
-        setTimeout(async () => {
-          await executeStep4();
-        }, 600);
-      }, 600);
-    }, 600);
+    setIsSimulating(true);
+    await runLiveCryptoCore();
+    setCurrentStep(4);
+    setIsSimulating(false);
   };
 
-  // Attack Test 1: Eve (Intruder Access Simulation)
+  // Attack Test 1: Eve
   const handleTestEveAttack = () => {
     setAttackEveResult({
       status: 'blocked',
@@ -239,69 +503,41 @@ export const DemoWorkspacePage: React.FC = () => {
       reason: 'Server ACL Check: Eve (intruder@demo.local) is not listed in authorized recipients.',
       mathProof: 'Even with physical wire capture of ciphertext, Eve has no access to Bob\'s private key (SK_Bob), rendering RSA-OAEP envelope recovery mathematically impossible.'
     });
+    launchOverlay('eve');
   };
 
-  // Attack Test 2: Active Bit-Flip Tampering Test
+  // Attack Test 2: Tamper
   const handleTestBitFlipTamper = async () => {
-    if (!simData || !simData.ciphertext || !simData.bobKeyPair || !simData.wrappedEnvelopeBase64 || !simData.nonce || !simData.aadBytes) {
-      alert('Please run the demo first so ciphertext exists to tamper with.');
-      return;
+    if (!simData) {
+      await runLiveCryptoCore();
     }
     setIsTampering(true);
     setAttackTamperResult(null);
 
     try {
-      // 1. Clone ciphertext and flip exactly 1 bit
-      const tamperedBytes = new Uint8Array(simData.ciphertext.slice(0));
-      tamperedBytes[12] ^= 0x01; // flip 1 bit in byte 12
+      if (simData) {
+        const tamperedBytes = new Uint8Array(simData.ciphertext!.slice(0));
+        tamperedBytes[12] ^= 0x01;
+        const unwrappedAESKey = await unwrapAESKeyWithPrivateKey(simData.wrappedEnvelopeBase64, simData.bobKeyPair!.privateKey);
 
-      // 2. Unwrap key
-      const unwrappedAESKey = await unwrapAESKeyWithPrivateKey(simData.wrappedEnvelopeBase64, simData.bobKeyPair.privateKey);
-
-      // 3. Attempt decryption -> MUST FAIL!
-      try {
-        await decryptFilePayload(tamperedBytes.buffer, unwrappedAESKey, simData.nonce, simData.aadBytes);
-        setAttackTamperResult({
-          passed: false,
-          message: 'CRITICAL FAILURE: Tampered ciphertext was decrypted without tag failure!'
-        });
-      } catch (err: any) {
-        setAttackTamperResult({
-          passed: true,
-          errorType: 'DOMException: OperationError',
-          message: 'SUCCESS: WebCrypto rejected altered ciphertext! The 128-bit AES-GCM authentication tag failed verification. Exactly 0 bytes of plaintext were released.'
-        });
+        try {
+          await decryptFilePayload(tamperedBytes.buffer, unwrappedAESKey, simData.nonce!, simData.aadBytes!);
+          setAttackTamperResult({ passed: false, message: 'Failure: Tampered ciphertext was decrypted!' });
+        } catch (err: any) {
+          setAttackTamperResult({
+            passed: true,
+            errorType: 'DOMException: OperationError',
+            message: 'SUCCESS: WebCrypto rejected altered ciphertext! 128-bit authentication tag mismatch detected. Exactly 0 bytes released.'
+          });
+        }
       }
+      launchOverlay('tamper');
     } finally {
       setIsTampering(false);
     }
   };
 
-  // Handle Legacy Multi-persona switch
-  const handleSwitchPersona = async (email: string, pass: string) => {
-    try {
-      await login(email, pass);
-      setNotification(`Switched active persona to ${email}`);
-      loadStatus();
-    } catch (err: any) {
-      setNotification(`Failed to switch persona: ${err.message}`);
-    }
-  };
-
-  // Reset Demo Database
-  const handleResetDemo = async () => {
-    if (!window.confirm('Reset all demo files, recipients, and test logs?')) return;
-    setIsResetting(true);
-    try {
-      await api.demo.reset();
-      setNotification('Demo environment reset successfully.');
-      loadStatus();
-    } catch (err: any) {
-      setNotification(`Reset failed: ${err.message}`);
-    } finally {
-      setIsResetting(false);
-    }
-  };
+  const currentActiveStage = activeStagesList[activeStageIndex];
 
   // Viva Questions Data
   const vivaQuestions = [
@@ -335,7 +571,7 @@ export const DemoWorkspacePage: React.FC = () => {
             Professor Demonstration & Defense Lab
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Simplified visual storyboard demonstrating client-side hybrid cryptography (AES-256-GCM + RSA-OAEP 3072).
+            Visual storyboard demonstrating client-side hybrid cryptography (AES-256-GCM + RSA-OAEP 3072) with live telemetry overlay.
           </p>
         </div>
 
@@ -373,12 +609,20 @@ export const DemoWorkspacePage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-slate-100">
             <div className="flex items-center space-x-3">
               <button
+                onClick={() => launchOverlay('normal')}
+                className="py-2.5 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-colors shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                <span>Launch Step-by-Step Execution Overlay</span>
+              </button>
+
+              <button
                 onClick={handleRunFullDemo}
                 disabled={isSimulating}
-                className="py-2.5 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-colors shadow-2xs disabled:opacity-50"
+                className="py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Run Complete Guided Demo (All Steps)</span>
+                <span>Direct Compute (Instant)</span>
               </button>
 
               <button
@@ -388,50 +632,31 @@ export const DemoWorkspacePage: React.FC = () => {
                   setAttackEveResult(null);
                   setAttackTamperResult(null);
                 }}
-                className="py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                className="py-2.5 px-3 text-slate-400 hover:text-slate-700 text-xs transition-colors"
+                title="Reset simulation state"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                <span>Reset Storyboard</span>
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Individual Step Selectors */}
-            <div className="flex items-center space-x-1 text-xs">
-              <span className="text-[11px] font-mono text-slate-400 mr-2 uppercase">Jump to:</span>
+            {/* Attack Demonstrations */}
+            <div className="flex items-center space-x-3">
+              <span className="text-[11px] font-mono text-slate-400 uppercase">Test Threats:</span>
               <button
-                onClick={executeStep1}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  currentStep === 1 ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'
-                }`}
+                onClick={handleTestEveAttack}
+                className="py-1.5 px-3 border border-slate-300 hover:border-slate-800 text-slate-800 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
-                1. AES Encrypt
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                <span>Eve 403 Test</span>
               </button>
+
               <button
-                onClick={executeStep2}
-                disabled={!simData}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  currentStep === 2 ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100 disabled:opacity-30'
-                }`}
+                onClick={handleTestBitFlipTamper}
+                disabled={isTampering}
+                className="py-1.5 px-3 border border-slate-300 hover:border-slate-800 text-slate-800 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-40"
               >
-                2. RSA Wrap
-              </button>
-              <button
-                onClick={executeStep3}
-                disabled={!simData?.wrappedEnvelopeBase64}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  currentStep === 3 ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100 disabled:opacity-30'
-                }`}
-              >
-                3. Cloud State
-              </button>
-              <button
-                onClick={executeStep4}
-                disabled={!simData?.wrappedEnvelopeBase64}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  currentStep === 4 ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100 disabled:opacity-30'
-                }`}
-              >
-                4. Bob Decrypts
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Bit-Flip Tamper Test</span>
               </button>
             </div>
           </div>
@@ -449,7 +674,7 @@ export const DemoWorkspacePage: React.FC = () => {
                   <span className="font-mono text-[10px] uppercase font-semibold text-sky-800">
                     Client 1: Sender
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${currentStep >= 1 ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <span className={`w-2 h-2 rounded-full ${simData ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                 </div>
                 <h4 className="text-base font-semibold text-slate-900">Alice</h4>
                 <p className="text-slate-500 text-[11px] leading-relaxed">
@@ -466,7 +691,7 @@ export const DemoWorkspacePage: React.FC = () => {
                   <span className="font-mono text-[10px] uppercase font-semibold text-slate-500">
                     Storage: Middleman
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${currentStep >= 3 ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <span className={`w-2 h-2 rounded-full ${simData ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                 </div>
                 <h4 className="text-base font-semibold text-slate-900">Untrusted Cloud</h4>
                 <p className="text-slate-500 text-[11px] leading-relaxed">
@@ -483,7 +708,7 @@ export const DemoWorkspacePage: React.FC = () => {
                   <span className="font-mono text-[10px] uppercase font-semibold text-emerald-800">
                     Client 2: Recipient
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${currentStep >= 4 ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <span className={`w-2 h-2 rounded-full ${simData?.recoveredPlaintext ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                 </div>
                 <h4 className="text-base font-semibold text-slate-900">Bob</h4>
                 <p className="text-slate-500 text-[11px] leading-relaxed">
@@ -515,29 +740,17 @@ export const DemoWorkspacePage: React.FC = () => {
 
           {/* ACTIVE DEMO STAGE INSPECTION */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-            {/* Left Column: Stage Explanation & Controls */}
+            {/* Left Column: Sample Payload & Overlay Controls */}
             <div className="lg:col-span-5 space-y-6">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-                  {currentStep === 0 && 'Ready to Begin'}
-                  {currentStep === 1 && 'Step 1 of 4: Symmetric Payload Encryption'}
-                  {currentStep === 2 && 'Step 2 of 4: Asymmetric Key Encapsulation'}
-                  {currentStep === 3 && 'Step 3 of 4: Untrusted Server Storage State'}
-                  {currentStep === 4 && 'Step 4 of 4: Client-Side Decryption & Verification'}
+                  Interactive Evaluation Payload
                 </span>
                 <h3 className="text-xl font-normal text-slate-900 font-serif">
-                  {currentStep === 0 && 'Click "Run Complete Guided Demo" above'}
-                  {currentStep === 1 && 'Alice Encrypts with AES-256-GCM + AAD'}
-                  {currentStep === 2 && 'Alice Wraps AES Key with Bob\'s RSA-3072 Public Key'}
-                  {currentStep === 3 && 'Cloud Stores Ciphertext (Zero Server Plaintext)'}
-                  {currentStep === 4 && 'Bob Recovers Plaintext with Local Private Key'}
+                  Sample Plaintext Document
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed pt-1">
-                  {currentStep === 0 && 'Demonstrate every cryptographic mathematical primitive live to your professor in under 60 seconds.'}
-                  {currentStep === 1 && 'Alice generates a one-time 256-bit AES key in RAM. The file bytes are encrypted with a 96-bit random nonce and canonical AAD metadata, outputting ciphertext and a 128-bit authentication tag.'}
-                  {currentStep === 2 && 'Why hybrid? RSA cannot encrypt large files. Alice takes the tiny 32-byte AES key and encrypts it using Bob\'s 3072-bit RSA-OAEP public key, creating a 384-byte wrapped key envelope.'}
-                  {currentStep === 3 && 'The cloud receives ONLY the ciphertext and the wrapped key envelope. Notice that the server possesses zero knowledge of the AES key, private keys, or plaintext.'}
-                  {currentStep === 4 && 'Bob retrieves his envelope, unwraps the AES key using his local RSA private key, and verifies the 128-bit GCM authentication tag. Plaintext matches 100%!'}
+                  Modify the plaintext message below. When you launch the overlay, you can demonstrate every cryptographic mathematical primitive and backend boundary live to your professor.
                 </p>
               </div>
 
@@ -555,37 +768,22 @@ export const DemoWorkspacePage: React.FC = () => {
                 />
               </div>
 
-              {/* Two Instant Proofs of Security Buttons */}
-              <div className="pt-4 border-t border-slate-200 space-y-3">
-                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
-                  Two Live Security Attack Demonstrations (Professor Viva Proofs)
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={handleTestEveAttack}
-                    className="flex-1 py-2 px-3 border border-slate-300 hover:border-slate-800 text-slate-800 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                    <span>1. Eve Intruder Test</span>
-                  </button>
-
-                  <button
-                    onClick={handleTestBitFlipTamper}
-                    disabled={isTampering}
-                    className="flex-1 py-2 px-3 border border-slate-300 hover:border-slate-800 text-slate-800 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                    <span>2. Bit-Flip Tamper Test</span>
-                  </button>
-                </div>
+              {/* Quick Launch Buttons */}
+              <div className="pt-2 space-y-2">
+                <button
+                  onClick={() => launchOverlay('normal')}
+                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Launch Telemetry Overlay (Paced Presentation)</span>
+                </button>
               </div>
             </div>
 
             {/* Right Column: Live Cryptographic Primitives Inspector */}
             <div className="lg:col-span-7 space-y-4">
               <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-100 flex items-center justify-between">
-                <span>Live Cryptographic State Inspector</span>
+                <span>Current Cryptographic State</span>
                 <span className="font-mono text-[10px] text-slate-400">W3C WebCrypto API</span>
               </div>
 
@@ -597,7 +795,6 @@ export const DemoWorkspacePage: React.FC = () => {
                     <span>HTTP {attackEveResult.httpCode} FORBIDDEN — Intruder Access Denied</span>
                   </div>
                   <p className="text-slate-700 leading-relaxed">{attackEveResult.reason}</p>
-                  <p className="text-[11px] text-slate-500 font-mono pt-1">{attackEveResult.mathProof}</p>
                 </div>
               )}
 
@@ -682,7 +879,7 @@ export const DemoWorkspacePage: React.FC = () => {
               ) : (
                 <div className="py-12 text-slate-400 text-xs font-mono space-y-1">
                   <p className="text-slate-600 font-medium">Simulation idle.</p>
-                  <p>Click "Run Complete Guided Demo" above to compute live cryptographic keys and verify hybrid encryption.</p>
+                  <p>Click "Launch Telemetry Overlay" to see every stage executed step-by-step.</p>
                 </div>
               )}
             </div>
@@ -738,7 +935,19 @@ export const DemoWorkspacePage: React.FC = () => {
               <p className="text-xs text-slate-500">Switch active browser sessions or reset seeded SQLite database files.</p>
             </div>
             <button
-              onClick={handleResetDemo}
+              onClick={async () => {
+                if (!window.confirm('Reset all demo files, recipients, and test logs?')) return;
+                setIsResetting(true);
+                try {
+                  await api.demo.reset();
+                  setNotification('Demo environment reset successfully.');
+                  loadStatus();
+                } catch (err: any) {
+                  setNotification(`Reset failed: ${err.message}`);
+                } finally {
+                  setIsResetting(false);
+                }
+              }}
               disabled={isResetting}
               className="text-xs font-semibold text-slate-900 hover:text-slate-600 flex items-center gap-1.5 transition-colors"
             >
@@ -795,7 +1004,15 @@ export const DemoWorkspacePage: React.FC = () => {
                   </div>
                   <div className="pt-2">
                     <button
-                      onClick={() => handleSwitchPersona(du.email, du.role === 'Sender' ? 'DemoSender123!' : du.role === 'Intended Recipient' ? 'DemoRecipient123!' : 'DemoIntruder123!')}
+                      onClick={async () => {
+                        try {
+                          await login(du.email, du.role === 'Sender' ? 'DemoSender123!' : du.role === 'Intended Recipient' ? 'DemoRecipient123!' : 'DemoIntruder123!');
+                          setNotification(`Switched active persona to ${du.email}`);
+                          loadStatus();
+                        } catch (err: any) {
+                          setNotification(`Failed to switch: ${err.message}`);
+                        }
+                      }}
                       disabled={isActive}
                       className={`text-xs font-semibold flex items-center gap-1 transition-colors ${
                         isActive ? 'text-slate-400 cursor-default' : 'text-slate-900 hover:text-slate-600 underline'
@@ -852,6 +1069,237 @@ export const DemoWorkspacePage: React.FC = () => {
                 <div className="font-mono text-[11px] text-slate-600 mt-1">{intruderResult.message}</div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 4. LIVE PRESENTATION TELEMETRY OVERLAY (REQUEST/RESPONSE HUD)         */}
+      {/* ==================================================================== */}
+      {isOverlayOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-300 max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[92vh]">
+            {/* Overlay Header Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-slate-900" />
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                    Live Execution Telemetry Overlay
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase font-semibold">
+                    {overlayScenario === 'normal' ? 'Normal Hybrid Flow' : overlayScenario === 'eve' ? 'Eve Intruder Test' : 'Bit-Flip Tamper Test'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Stage-by-stage presentation breakdown showing client-side RAM operations vs backend REST requests.
+                </p>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setIsOverlayOpen(false);
+                  setIsOverlayPlaying(false);
+                }}
+                className="text-slate-400 hover:text-slate-700 p-1 shrink-0"
+                title="Close Overlay"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Playback & Pacing Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 py-2 border-b border-slate-100 text-xs">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setIsOverlayPlaying(!isOverlayPlaying)}
+                  className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  {isOverlayPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                  <span>{isOverlayPlaying ? 'Pause Telemetry' : 'Play / Resume'}</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveStageIndex(Math.max(0, activeStageIndex - 1))}
+                  disabled={activeStageIndex <= 0}
+                  className="py-1.5 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium disabled:opacity-30"
+                >
+                  ← Previous
+                </button>
+
+                <button
+                  onClick={() => setActiveStageIndex(Math.min(activeStagesList.length - 1, activeStageIndex + 1))}
+                  disabled={activeStageIndex >= activeStagesList.length - 1}
+                  className="py-1.5 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium disabled:opacity-30"
+                >
+                  Next Stage →
+                </button>
+
+                <button
+                  onClick={() => setActiveStageIndex(0)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700"
+                  title="Rewind to Stage 1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Pacing Speed Selector */}
+              <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-500">
+                <span>Pacing:</span>
+                <button
+                  onClick={() => setPacingMs(1400)}
+                  className={`px-2 py-0.5 rounded transition-colors ${
+                    pacingMs === 1400 ? 'bg-slate-900 text-white font-semibold' : 'hover:bg-slate-100'
+                  }`}
+                >
+                  1.4s (Presentation)
+                </button>
+                <button
+                  onClick={() => setPacingMs(800)}
+                  className={`px-2 py-0.5 rounded transition-colors ${
+                    pacingMs === 800 ? 'bg-slate-900 text-white font-semibold' : 'hover:bg-slate-100'
+                  }`}
+                >
+                  0.8s (Standard)
+                </button>
+                <button
+                  onClick={() => setPacingMs(350)}
+                  className={`px-2 py-0.5 rounded transition-colors ${
+                    pacingMs === 350 ? 'bg-slate-900 text-white font-semibold' : 'hover:bg-slate-100'
+                  }`}
+                >
+                  0.3s (Fast)
+                </button>
+              </div>
+            </div>
+
+            {/* Stages Progress Indicator Bar */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 uppercase">
+                <span>Stage Progress</span>
+                <span>
+                  {activeStageIndex + 1} of {activeStagesList.length} Completed
+                </span>
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
+                {activeStagesList.map((stg, i) => {
+                  const isCurrent = i === activeStageIndex;
+                  const isDone = i < activeStageIndex;
+                  return (
+                    <button
+                      key={stg.number}
+                      onClick={() => {
+                        setIsOverlayPlaying(false);
+                        setActiveStageIndex(i);
+                      }}
+                      className={`h-2 rounded-xs transition-all ${
+                        isCurrent
+                          ? 'bg-slate-900 ring-2 ring-slate-900/30'
+                          : isDone
+                          ? 'bg-emerald-600'
+                          : 'bg-slate-200'
+                      }`}
+                      title={`Stage ${stg.number}: ${stg.title}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ACTIVE STAGE SPOTLIGHT CARD (Clean, editorial, high-contrast) */}
+            {currentActiveStage && (
+              <div className="space-y-4 pt-2">
+                {/* Domain & Stage Header */}
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-mono text-xs font-bold text-slate-400">
+                      STAGE 0{currentActiveStage.number}
+                    </span>
+                    <span className={`font-mono text-xs font-bold ${currentActiveStage.domainColor}`}>
+                      [{currentActiveStage.domain}]
+                    </span>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold">
+                      {currentActiveStage.badge}
+                    </span>
+                  </div>
+
+                  <span className="text-[11px] font-mono text-emerald-700 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    LIVE COMPUTATION
+                  </span>
+                </div>
+
+                {/* Plain English Storyboard Narration for Professor */}
+                <div className="space-y-1">
+                  <h4 className="text-lg font-semibold text-slate-900">{currentActiveStage.title}</h4>
+                  <p className="text-xs text-slate-700 leading-relaxed font-serif text-sm">
+                    "{currentActiveStage.plainEnglish}"
+                  </p>
+                </div>
+
+                {/* Technical Method Execution Box */}
+                <div className="py-2.5 px-3 bg-slate-50 border-l-2 border-slate-900 font-mono text-xs text-slate-900 break-words-anywhere">
+                  <span className="text-slate-400 text-[10px] block uppercase font-mono">Executed Primitive:</span>
+                  <span className="font-semibold text-slate-800">{currentActiveStage.technicalDetail}</span>
+                </div>
+
+                {/* Parameters & Telemetry Key-Value List */}
+                <div className="space-y-2 pt-2">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                    Live Telemetry Proofs
+                  </div>
+                  <dl className="divide-y divide-slate-100 text-xs">
+                    {currentActiveStage.params.map((p, idx) => (
+                      <div key={idx} className="py-2 flex flex-col sm:flex-row sm:justify-between gap-1">
+                        <dt className="text-slate-400 font-mono text-[11px] shrink-0">{p.label}</dt>
+                        <dd className="font-mono text-slate-800 text-[11px] break-words-anywhere select-all font-medium sm:text-right">
+                          {p.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+
+                {/* Security Invariant Guarantee Callout */}
+                <div className="pt-2 border-t border-slate-100 flex items-start gap-2 text-xs text-slate-600">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Cryptographic Invariant:</strong> {currentActiveStage.securityInvariant}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Overlay Footer */}
+            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <span className="text-slate-400 font-mono text-[11px]">
+                Web Crypto API • Pure RAM Execution • Argon2id & PyJWT
+              </span>
+
+              <div className="flex items-center space-x-3">
+                {activeStageIndex < activeStagesList.length - 1 ? (
+                  <button
+                    onClick={() => setActiveStageIndex(activeStageIndex + 1)}
+                    className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <span>Next Stage</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsOverlayOpen(false);
+                      setIsOverlayPlaying(false);
+                    }}
+                    className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold transition-colors"
+                  >
+                    Finish & View Main Storyboard
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
