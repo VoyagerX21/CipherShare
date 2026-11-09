@@ -51,6 +51,7 @@ npm --prefix frontend run dev
 - Available at `http://localhost:5173`.
 - Proxies `/api` requests automatically to `http://127.0.0.1:5000`.
 - Features classic light theme with persistent left sidebar, live key vault widget, 1-click persona switcher, full-width screen utilization, and large filename text wrapping.
+- **Professor Presentation Storyboard**: Available directly at `http://localhost:5173/demo`. Allows presenting the complete hybrid encryption lifecycle (AES-256-GCM + RSA-OAEP 3072), Eve 403 access blocking, and bit-flip tamper rejection on a single screen without logging in and out.
 
 ---
 
