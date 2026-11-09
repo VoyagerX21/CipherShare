@@ -79,43 +79,44 @@ class LocalStorageService(BaseStorageService):
 
 class SupabaseStorageService(BaseStorageService):
     def __init__(self, supabase_url: str, service_role_key: str, bucket_name: str, fallback_local: LocalStorageService):
-        self.supabase_url = supabase_url
+        self.supabase_url = supabase_url.rstrip('/') if supabase_url else ''
         self.service_role_key = service_role_key
         self.bucket_name = bucket_name
         self.fallback_local = fallback_local
-        self._client = None
-        self._init_client()
 
-    def _init_client(self):
-        if self.supabase_url and self.service_role_key:
-            try:
-                from supabase import create_client
-                self._client = create_client(self.supabase_url, self.service_role_key)
-            except Exception as e:
-                current_app.logger.warning(f"Could not initialize Supabase client: {e}. Falling back to local storage.")
-                self._client = None
+    def _get_headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self.service_role_key}",
+            "apiKey": self.service_role_key
+        }
 
     def is_configured(self) -> bool:
-        return self._client is not None
+        return bool(self.supabase_url and self.service_role_key)
 
     def save_object(self, object_key: str, data: bytes) -> dict:
         if not self.is_configured():
             return self.fallback_local.save_object(object_key, data)
 
         try:
-            res = self._client.storage.from_(self.bucket_name).upload(
-                path=object_key,
-                file=data,
-                file_options={"content-type": "application/octet-stream", "upsert": "false"}
-            )
-            return {
-                'storage_type': 'supabase',
-                'object_key': object_key,
-                'bytes_written': len(data),
-                'bucket': self.bucket_name
+            import requests
+            upload_url = f"{self.supabase_url}/storage/v1/object/{self.bucket_name}/{object_key}"
+            headers = {
+                **self._get_headers(),
+                "Content-Type": "application/octet-stream",
+                "x-upsert": "true"
             }
+            resp = requests.post(upload_url, data=data, headers=headers, timeout=15)
+            if resp.status_code in [200, 201]:
+                return {
+                    'storage_type': 'supabase',
+                    'object_key': object_key,
+                    'bytes_written': len(data),
+                    'bucket': self.bucket_name
+                }
+            else:
+                current_app.logger.warning(f"Supabase REST upload failed ({resp.status_code}): {resp.text}. Falling back to local.")
+                return self.fallback_local.save_object(object_key, data)
         except Exception as e:
-            # Fall back to local if cloud fails
             current_app.logger.error(f"Supabase upload error: {e}. Falling back to local storage.")
             return self.fallback_local.save_object(object_key, data)
 
@@ -124,8 +125,14 @@ class SupabaseStorageService(BaseStorageService):
             return self.fallback_local.get_object_bytes(object_key)
 
         try:
-            data = self._client.storage.from_(self.bucket_name).download(object_key)
-            return data
+            import requests
+            download_url = f"{self.supabase_url}/storage/v1/object/{self.bucket_name}/{object_key}"
+            resp = requests.get(download_url, headers=self._get_headers(), timeout=15)
+            if resp.status_code == 200:
+                return resp.content
+            else:
+                current_app.logger.warning(f"Supabase REST download returned {resp.status_code}. Trying fallback local storage.")
+                return self.fallback_local.get_object_bytes(object_key)
         except Exception as e:
             current_app.logger.warning(f"Supabase download error: {e}. Trying fallback local storage.")
             return self.fallback_local.get_object_bytes(object_key)
@@ -134,8 +141,18 @@ class SupabaseStorageService(BaseStorageService):
         if not self.is_configured():
             return self.fallback_local.object_exists(object_key)
         try:
-            files = self._client.storage.from_(self.bucket_name).list(search=object_key)
-            return any(f.get('name') == object_key for f in files)
+            import requests
+            list_url = f"{self.supabase_url}/storage/v1/object/list/{self.bucket_name}"
+            resp = requests.post(
+                list_url,
+                json={"prefix": "", "search": object_key},
+                headers={**self._get_headers(), "Content-Type": "application/json"},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                items = resp.json()
+                return any(item.get('name') == object_key for item in items)
+            return self.fallback_local.object_exists(object_key)
         except Exception:
             return self.fallback_local.object_exists(object_key)
 
@@ -143,8 +160,19 @@ class SupabaseStorageService(BaseStorageService):
         if not self.is_configured():
             return self.fallback_local.delete_object(object_key)
         try:
-            self._client.storage.from_(self.bucket_name).remove([object_key])
-            return True
+            import requests
+            delete_url = f"{self.supabase_url}/storage/v1/object/{self.bucket_name}/{object_key}"
+            resp = requests.delete(delete_url, headers=self._get_headers(), timeout=10)
+            if resp.status_code in [200, 204]:
+                return True
+            # Fallback to prefixes deletion
+            resp2 = requests.delete(
+                f"{self.supabase_url}/storage/v1/object/{self.bucket_name}",
+                json={"prefixes": [object_key]},
+                headers={**self._get_headers(), "Content-Type": "application/json"},
+                timeout=10
+            )
+            return resp2.status_code in [200, 204]
         except Exception:
             return self.fallback_local.delete_object(object_key)
 
