@@ -7,7 +7,6 @@ import { PassphraseModal } from '../common/PassphraseModal';
 import {
   Shield,
   Send,
-  Inbox,
   FileCheck,
   Clock,
   Sparkles,
@@ -33,33 +32,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [isKeySetupOpen, setIsKeySetupOpen] = useState(false);
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [inboxBadge, setInboxBadge] = useState<number | null>(null);
-
-  useEffect(() => {
-    async function fetchBadge() {
-      if (user) {
-        try {
-          const res = await api.files.getInbox();
-          setInboxBadge(res.files.length);
-        } catch {}
-      }
-    }
-    fetchBadge();
-  }, [user, location.pathname]);
 
   if (!user) {
     return <>{children}</>;
   }
 
   const navLinks = [
-    { to: '/dashboard', label: 'Overview', icon: Shield },
+    { to: '/demo', label: 'Demonstration', icon: Sparkles },
     { to: '/share', label: 'Share File', icon: Send },
-    { to: '/inbox', label: 'Inbox', icon: Inbox, badge: inboxBadge },
     { to: '/sent', label: 'Sent Dispatches', icon: FileCheck },
     { to: '/security', label: 'Security & Audit', icon: Clock },
-    { to: '/playground', label: 'Playground', icon: Sparkles },
     { to: '/keys', label: 'Key Vault', icon: KeyRound },
-    { to: '/demo', label: 'Live Demo Storyboard', icon: Sparkles },
+    { to: '/dashboard', label: 'System Overview', icon: Shield },
   ];
 
   const handleQuickSwitch = async (email: string, pass: string) => {
@@ -140,11 +124,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                       <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
                       <span className="truncate">{item.label}</span>
                     </div>
-                    {item.badge !== undefined && item.badge !== null && item.badge > 0 && (
-                      <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 text-slate-600 bg-slate-200/60 rounded">
-                        {item.badge}
-                      </span>
-                    )}
                   </Link>
                 );
               })}

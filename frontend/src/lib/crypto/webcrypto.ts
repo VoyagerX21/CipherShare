@@ -59,9 +59,19 @@ export function hexToArrayBuffer(hexString: string): ArrayBuffer {
  * Computes SHA-256 hash of an ArrayBuffer or string
  */
 export async function computeSHA256(data: ArrayBuffer | Uint8Array | string): Promise<string> {
+  return computeDigest(data, 'SHA-256');
+}
+
+/**
+ * Computes cryptographic hash digest (SHA-256 or SHA-512)
+ */
+export async function computeDigest(
+  data: ArrayBuffer | Uint8Array | string,
+  algorithm: 'SHA-256' | 'SHA-512' = 'SHA-256'
+): Promise<string> {
   const crypto = getCrypto();
   const buffer = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  const digest = await crypto.subtle.digest(algorithm, buffer);
   return arrayBufferToHex(digest);
 }
 
@@ -79,16 +89,19 @@ export async function computeJWKFingerprint(jwk: JsonWebKey): Promise<string> {
 }
 
 /**
- * Generates an RSA-OAEP 3072-bit asymmetric key pair
+ * Generates an RSA-OAEP asymmetric key pair (configurable modulus 2048 or 3072 bits)
  */
-export async function generateUserKeyPair(): Promise<CryptoKeyPair> {
+export async function generateUserKeyPair(
+  modulusLength: number = 3072,
+  hash: string = 'SHA-256'
+): Promise<CryptoKeyPair> {
   const crypto = getCrypto();
   return crypto.subtle.generateKey(
     {
       name: 'RSA-OAEP',
-      modulusLength: 3072,
+      modulusLength,
       publicExponent: new Uint8Array([0x01, 0x00, 0x01]), // 65537
-      hash: 'SHA-256'
+      hash
     },
     true, // extractable
     ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
@@ -123,14 +136,14 @@ export async function importPublicKeyJWK(jwkJson: string): Promise<CryptoKey> {
 }
 
 /**
- * Generates a fresh random 256-bit AES-GCM symmetric key
+ * Generates a fresh random AES-GCM symmetric key (128-bit or 256-bit)
  */
-export async function generateFileAESKey(): Promise<CryptoKey> {
+export async function generateFileAESKey(length: 128 | 256 = 256): Promise<CryptoKey> {
   const crypto = getCrypto();
   return crypto.subtle.generateKey(
     {
       name: 'AES-GCM',
-      length: 256
+      length
     },
     true, // extractable for key wrapping
     ['encrypt', 'decrypt']

@@ -5,10 +5,8 @@ import { AppLayout } from './components/layout/AppLayout';
 import { LandingPage } from './pages/LandingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ShareFilePage } from './pages/ShareFilePage';
-import { InboxPage } from './pages/InboxPage';
 import { SentFilesPage } from './pages/SentFilesPage';
 import { SecurityCenterPage } from './pages/SecurityCenterPage';
-import { PlaygroundPage } from './pages/PlaygroundPage';
 import { KeyManagementPage } from './pages/KeyManagementPage';
 import { DemoWorkspacePage } from './pages/DemoWorkspacePage';
 
@@ -58,14 +56,8 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/inbox"
-            element={
-              <ProtectedRoute>
-                <InboxPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/inbox" element={<Navigate to="/demo" replace />} />
+          <Route path="/playground" element={<Navigate to="/demo" replace />} />
           <Route
             path="/sent"
             element={
@@ -79,14 +71,6 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <SecurityCenterPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/playground"
-            element={
-              <ProtectedRoute>
-                <PlaygroundPage />
               </ProtectedRoute>
             }
           />
