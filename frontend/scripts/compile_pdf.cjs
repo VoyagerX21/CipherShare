@@ -250,3 +250,4 @@ compileReportToPDF().catch(err => {
   console.error('Failed to compile PDF:', err);
   process.exit(1);
 });
+
