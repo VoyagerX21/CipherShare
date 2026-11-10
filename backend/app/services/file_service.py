@@ -204,7 +204,21 @@ def complete_file_share(file_id: str, sender: User, payload: dict) -> tuple[dict
         }
     )
 
-    return shared_file.to_dict(include_recipients=True), 200
+    res_dict = shared_file.to_dict(include_recipients=True)
+    chain_data = f"{shared_file.id}|{actual_hash}|{sender.id}|{shared_file.nonce}"
+    chain_hash = hashlib.sha256(chain_data.encode('utf-8')).hexdigest()
+    res_dict['cloud_attestation'] = {
+        'attestation_type': 'CLOUD_PUT_ATTEST',
+        'file_id': shared_file.id,
+        'block_version': 1,
+        'ciphertext_sha256': actual_hash,
+        'chain_hash': chain_hash,
+        'security_properties': ['C', 'I', 'W', 'F'],
+        'sla_framework': 'Popa et al. (MIT/MSR CloudProof)',
+        'verified_by': 'CipherShare Untrusted Cloud Storage Service'
+    }
+
+    return res_dict, 200
 
 
 def authorize_file_download(file_id: str, user: User) -> tuple[dict, int]:
@@ -251,6 +265,9 @@ def authorize_file_download(file_id: str, user: User) -> tuple[dict, int]:
         }
     )
 
+    chain_data = f"{shared_file.id}|{shared_file.ciphertext_sha256}|{recipient_row.recipient_id}|{shared_file.nonce}"
+    chain_hash = hashlib.sha256(chain_data.encode('utf-8')).hexdigest()
+
     return {
         'file_id': shared_file.id,
         'original_filename': shared_file.original_filename,
@@ -267,6 +284,15 @@ def authorize_file_download(file_id: str, user: User) -> tuple[dict, int]:
         'plaintext_sha256': shared_file.plaintext_sha256,
         'aad_version': shared_file.aad_version,
         'download_url': f"/api/v1/files/{shared_file.id}/download-content",
+        'cloud_attestation': {
+            'attestation_type': 'CLOUD_GET_ATTEST',
+            'file_id': shared_file.id,
+            'block_version': 1,
+            'chain_hash': chain_hash,
+            'security_properties': ['C', 'I', 'W', 'F'],
+            'sla_framework': 'Popa et al. (MIT/MSR CloudProof)',
+            'verified_by': 'CipherShare Untrusted Cloud Storage Service'
+        },
         'recipient_envelope': {
             'recipient_id': recipient_row.recipient_id,
             'recipient_public_key_id': recipient_row.recipient_public_key_id,

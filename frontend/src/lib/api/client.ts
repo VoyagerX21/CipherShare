@@ -164,6 +164,18 @@ export const api = {
         method: 'POST',
       }),
 
+    verifySLAProof: (data: { file_id: string; ciphertext_sha256: string }) =>
+      request<{
+        file_id: string;
+        framework: string;
+        sla_properties: { C: boolean; I: boolean; W: boolean; F: boolean };
+        verification_result: string;
+        theorem_reference: string;
+      }>('/files/verify-sla-proof', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
     downloadCiphertextBlob: async (fileId: string): Promise<ArrayBuffer> => {
       const token = getToken();
       const res = await fetch(`${API_BASE}/files/${fileId}/download-content`, {

@@ -76,6 +76,15 @@ export interface DownloadAuthResponse {
   aad_version: string;
   download_url: string;
   recipient_envelope: RecipientKeyEnvelope;
+  cloud_attestation?: {
+    attestation_type: string;
+    file_id: string;
+    block_version: number;
+    chain_hash: string;
+    security_properties: string[];
+    sla_framework: string;
+    verified_by: string;
+  };
 }
 
 export interface AuditEventItem {

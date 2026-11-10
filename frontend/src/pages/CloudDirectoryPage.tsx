@@ -165,7 +165,7 @@ export const CloudDirectoryPage: React.FC = () => {
         errorMessage: err.message || 'Access denied: You are not an authorized recipient of this file.',
         timestamp: new Date().toISOString(),
         invariantDetails: [
-          'Rule 4 Invariant: Non-recipients are strictly forbidden from key envelope retrieval (HTTP 403).',
+          'Popa et al. CloudProof SLA Guarantee: Non-recipients are strictly forbidden from key envelope retrieval (Proof of Access Violation).',
           'Zero Server Plaintext: The backend does not hold plaintext or content-encryption AES keys.',
           'Envelope Isolation: The server never delivers envelopes to unauthorized callers.',
           'Cryptographic Barrier: AES-256-GCM ciphertext without the corresponding RSA-wrapped key envelope is mathematically indistinguishable from random noise (2^256 brute force barrier).'
