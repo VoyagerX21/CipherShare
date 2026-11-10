@@ -482,7 +482,7 @@ export const DemoWorkspacePage: React.FC = () => {
     setOverlayScenario(scenario);
     setActiveStageIndex(0);
     setIsOverlayOpen(true);
-    setIsOverlayPlaying(true);
+    setIsOverlayPlaying(false); // Default behaviour is paused for all demonstrations
 
     if (scenario === 'normal') {
       await runLiveCryptoCore();
@@ -1018,7 +1018,11 @@ export const DemoWorkspacePage: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setIsOverlayPlaying(!isOverlayPlaying)}
-                  className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  className={`py-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                    isOverlayPlaying
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                      : 'bg-slate-900 hover:bg-slate-800 text-white'
+                  }`}
                 >
                   {isOverlayPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   <span>{isOverlayPlaying ? 'Pause Telemetry' : 'Play / Resume'}</span>
@@ -1041,12 +1045,29 @@ export const DemoWorkspacePage: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => setActiveStageIndex(0)}
+                  onClick={() => {
+                    setActiveStageIndex(0);
+                    setIsOverlayPlaying(false);
+                  }}
                   className="p-1.5 text-slate-400 hover:text-slate-700"
-                  title="Rewind to Stage 1"
+                  title="Rewind to Stage 1 (Paused)"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
+
+                <span className="text-[11px] font-mono ml-2">
+                  {isOverlayPlaying ? (
+                    <span className="text-emerald-700 flex items-center gap-1 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Auto-Advancing
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Paused (Manual Step)
+                    </span>
+                  )}
+                </span>
               </div>
 
               {/* Pacing Speed Selector */}

@@ -69,6 +69,37 @@ def sent():
     return jsonify({'files': [f.to_dict(include_recipients=True) for f in files]}), 200
 
 
+@file_bp.route('/directory', methods=['GET'])
+@jwt_required
+def directory():
+    user = g.current_user
+    files = SharedFile.query.filter_by(status='completed').order_by(SharedFile.created_at.desc()).all()
+
+    file_list = []
+    for f in files:
+        recips = f.recipients.all()
+        is_sender = (f.sender_id == user.id)
+        user_recipient = next((r for r in recips if r.recipient_id == user.id), None)
+        is_recipient = (user_recipient is not None)
+
+        if is_sender:
+            my_access_status = 'sender'
+        elif is_recipient:
+            my_access_status = 'authorized_recipient'
+        else:
+            my_access_status = 'unauthorized'
+
+        item = f.to_dict(include_recipients=False)
+        item['storage_object_key'] = f.storage_object_key
+        item['is_sender'] = is_sender
+        item['is_recipient'] = is_recipient
+        item['my_access_status'] = my_access_status
+        item['recipients'] = [r.to_dict() for r in recips]
+        file_list.append(item)
+
+    return jsonify({'files': file_list}), 200
+
+
 @file_bp.route('/<file_id>', methods=['GET'])
 @jwt_required
 def get_file(file_id):

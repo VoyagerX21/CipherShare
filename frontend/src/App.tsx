@@ -9,6 +9,7 @@ import { SentFilesPage } from './pages/SentFilesPage';
 import { SecurityCenterPage } from './pages/SecurityCenterPage';
 import { KeyManagementPage } from './pages/KeyManagementPage';
 import { DemoWorkspacePage } from './pages/DemoWorkspacePage';
+import { CloudDirectoryPage } from './pages/CloudDirectoryPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
@@ -56,7 +57,15 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/inbox" element={<Navigate to="/demo" replace />} />
+          <Route
+            path="/directory"
+            element={
+              <ProtectedRoute>
+                <CloudDirectoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/inbox" element={<Navigate to="/directory" replace />} />
           <Route path="/playground" element={<Navigate to="/demo" replace />} />
           <Route
             path="/sent"

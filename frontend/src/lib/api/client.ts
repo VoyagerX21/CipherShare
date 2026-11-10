@@ -156,6 +156,7 @@ export const api = {
 
     getInbox: () => request<{ files: SharedFile[] }>('/files/inbox'),
     getSent: () => request<{ files: SharedFile[] }>('/files/sent'),
+    getDirectory: () => request<{ files: SharedFile[] }>('/files/directory'),
     getFile: (fileId: string) => request<SharedFile>(`/files/${fileId}`),
 
     authorizeDownload: (fileId: string) =>

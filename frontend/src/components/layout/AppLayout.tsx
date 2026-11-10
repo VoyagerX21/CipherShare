@@ -17,7 +17,8 @@ import {
   Unlock,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Globe
 } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -39,6 +40,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const navLinks = [
     { to: '/demo', label: 'Demonstration', icon: Sparkles },
+    { to: '/directory', label: 'Cloud Directory', icon: Globe },
     { to: '/share', label: 'Share File', icon: Send },
     { to: '/sent', label: 'Sent Dispatches', icon: FileCheck },
     { to: '/security', label: 'Security & Audit', icon: Clock },

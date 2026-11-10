@@ -54,6 +54,9 @@ export interface SharedFile {
   status: string;
   recipients?: FileRecipientInfo[];
   my_access_status?: string;
+  storage_object_key?: string;
+  is_sender?: boolean;
+  is_recipient?: boolean;
 }
 
 export interface DownloadAuthResponse {

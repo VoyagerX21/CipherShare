@@ -43,7 +43,7 @@ CipherShare/
 │   │   ├── features/auth/     # React AuthContext & session management
 │   │   ├── lib/api/           # REST API client
 │   │   ├── lib/crypto/        # Web Crypto API primitives & IndexedDB KeyStore
-│   │   ├── pages/             # Dashboard, Share, Inbox, Sent, Security, Playground, Demo
+│   │   ├── pages/             # Dashboard, Share, CloudDirectory, Sent, Security, KeyManagement, Demo
 │   │   └── types/             # TypeScript interfaces
 │   ├── package.json           # Frontend dependencies & scripts
 │   └── vite.config.ts         # Vite bundler configuration & API proxy

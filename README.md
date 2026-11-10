@@ -9,6 +9,7 @@ CipherShare is a full-stack web application developed for a college Cryptography
 
 ## 1. Key Features
 
+- **Global Cloud Repository & Directory**: A transparent public catalog (`/directory`) displaying every ciphertext object in cloud storage (Supabase S3 / PostgreSQL). Files are indexed universally, but zero-knowledge hybrid cryptography ensures that *only designated recipients* can decrypt; intruders are rejected with HTTP 403 Forbidden and cannot decrypt without the 3072-bit RSA private key.
 - **Classic Light Theme & Full-Width Architecture**: Clean, classic institutional aesthetic with a dedicated left sidebar navigation, real-time key vault widget, 1-click persona quick-switcher, and dynamic unread delivery count badges. Spans the full screen width without artificial center boxing.
 - **Robust Text Wrapping & Large Filename Handling**: All file names, SHA-256 hashes, public key fingerprints, and recipient identifiers feature comprehensive text wrapping (`overflow-wrap: anywhere`), preventing clipping or overflow regardless of file name length.
 - **Hybrid Encryption**: Combines **AES-256-GCM** (128-bit authentication tag, 96-bit nonce) for high-speed file payload encryption with **RSA-OAEP 3072-bit** asymmetric cryptography for multi-recipient key encapsulation.
@@ -134,10 +135,15 @@ Navigate to **Demo Workspace** (`http://localhost:5173/demo`) for the guided pre
      9. Metadata & envelope saved.
 4. **Test Intruder Access Denial (Eve)**:
    - Switch persona to **Eve Intruder** (`intruder@demo.local`).
-   - Verify Eve's inbox is empty.
-   - In Demo Workspace, paste the File ID and click **Simulate Unauthorized Request**.
+   - Go to **Cloud Directory** (`/directory`).
+   - Find any file in the public repository and click **Attempt Decrypt**.
    - Backend enforces recipient check and returns **HTTP 403 Forbidden**. Download URL and AES key envelope are withheld.
+   - An in-browser **Cryptographic Barrier Proof** displays the exact mathematical and access control invariants.
 5. **Legitimate Decryption by Bob**:
+   - Switch persona to **Bob Recipient** (`recipient@demo.local`).
+   - Go to **Cloud Directory** (`/directory`).
+   - Click **Decrypt File**.
+   - Web Crypto unwraps the AES session key using Bob's RSA-OAEP 3072 private key, decrypts via AES-256-GCM, verifies SHA-256, and reveals the plaintext preview and direct download!
    - Switch persona to **Bob Recipient** (`recipient@demo.local`).
    - Go to **Inbox** (`/inbox`).
    - Click **Download & Decrypt**.
@@ -192,4 +198,12 @@ To switch from the default local private storage to hosted Supabase Storage:
 - **Server-Side Metadata**: File names, file sizes, and recipient associations are visible as plaintext database records.
 - **Private Key Loss**: If a user clears their browser's IndexedDB without an exported backup, previously shared files become unrecoverable.
 - **Academic Scope**: This prototype has not undergone an external commercial security audit.
+
+---
+
+## 11. Project Report & Academic Evaluation
+
+For a comprehensive evaluation containing the formal problem statement, mathematical derivations, real benchmark figures, automated test suites, and empirical visual evidence, consult:
+- **Project Report**: [`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)
+- **High-Resolution Evidence**: [`docs/screenshots/`](docs/screenshots/)
 
