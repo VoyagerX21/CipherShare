@@ -184,6 +184,6 @@ Empirical testing confirms that client-side hybrid cryptography incurs negligibl
 
 ---
 
-**Project Repository**: `https://github.com/ciphershare/ciphershare`  
+**Project Repository**: `https://github.com/VoyagerX21/CipherShare`  
 **Group Number**: Group - 22  
 **Evaluation Scope**: Academic Applied Cryptography & Information Security Project
