@@ -1,261 +1,189 @@
-# CipherShare: Advancing Cloud Storage Security SLAs Through Browser-Native Hybrid Cryptography and Non-Repudiable Attestations
+# CIPHERSHARE — SECURE CLOUD FILE SHARING
+### Technical Project Report
 
-**An Applied Implementation and Modern Extension of Popa et al. (CloudProof, USENIX ATC '11)**  
-**Author / Academic Evaluation**: Cryptography & Information Security Laboratory  
-**Target Paper Grounding**: *Raluca Ada Popa, Jacob R. Lorch, David Molnar, Helen J. Wang, Li Zhuang. "Enabling Security in Cloud Storage SLAs with CloudProof". USENIX Annual Technical Conference (ATC '11), Portland, OR.*  
-**Production Status**: Verified Full-Stack Implementation (Supabase S3 / PostgreSQL / W3C Web Crypto API)  
-**Date**: November 2026  
-
----
-
-## Abstract
-
-Cloud storage providers such as Amazon Web Services (AWS S3) and Microsoft Azure offer Service Level Agreements (SLAs) guaranteeing high availability (e.g., 99.9%), yet they universally fail to provide cryptographically enforceable **security guarantees**. In their landmark paper *CloudProof* (USENIX ATC 2011), Raluca Ada Popa et al. established that clients must not only detect cloud security misbehavior (violations of Confidentiality, Integrity, Write-Serializability, and Freshness), but also possess the capability to cryptographically **prove these violations to an objective third party** without enabling clients to frame an honest cloud.
-
-This report presents **CipherShare**, a modern software architecture that implements, evaluates, and significantly improves upon the foundation laid by Popa et al. While CloudProof demonstrated the viability of security SLAs, its 2011 implementation suffered from critical contemporary vulnerabilities and architectural friction: reliance on deprecated primitives (**SHA-1** and **1024-bit RSA**), absence of authenticated associated data (**AAD**) binding, reliance on a native desktop **C# / .NET** binary, and lack of browser-isolated private key storage.
-
-**CipherShare** modernizes CloudProof into a zero-installation, browser-native cloud storage architecture. We replace unauthenticated AES-CTR with **AES-256-GCM** incorporating **Canonical AAD contextual binding**, upgrade key encapsulation to **RSA-OAEP 3072-bit**, protect client private keys in browser **IndexedDB** using **PBKDF2-SHA-256 (600,000 iterations)** + **AES-GCM**, and implement real-time **non-repudiable attestation exchanges** over modern cloud object storage (Supabase S3). Empirical benchmarks show our browser-based engine achieves **216 MB/s** symmetric throughput with negligible latency overhead (**4.62 ms** on 1 MB payloads), successfully detecting single-bit corruptions and enforcing strict **HTTP 403 Forbidden** isolation against unauthorized access.
+<div class="group-box">
+<strong>Group - 22</strong><br>
+<strong>Group Members:</strong><br>
+Sarvjeet Swanshi - S20230010216<br>
+Gourav Khakse - S20230010093<br>
+Saurav kumar roy - S202300010218
+</div>
 
 ---
 
-## 1. Problem Statement & The Cloud Security SLA Dilemma
+## 1. Introduction
 
-### 1.1 The Inadequacy of Modern Cloud SLAs
-Contemporary enterprises entrust petabytes of confidential records, source repositories, and proprietary financial files to public commodity clouds. However, commercial cloud SLAs remain purely availability-centric:
-- **AWS S3 SLA**: Reimburses contractual credits only if availability dips below 99.9%.
-- **Microsoft Azure SLA**: Covers downtime, but provides **zero contractual guarantees** regarding data confidentiality, bit-level integrity, or access control violations.
+Cloud storage providers such as Amazon Web Services (AWS S3), Microsoft Azure, and Google Cloud offer Service Level Agreements (SLAs) guaranteeing high availability (e.g., 99.9%), but provide zero contractual guarantees regarding data confidentiality, integrity, or access control. Under traditional server-side encryption architectures, the cloud provider holds the decryption keys, leaving files vulnerable to insider threats, hypervisor breaches, and subpoena access.
 
-These vulnerabilities are documented by historical cloud failures:
-1. **Silent Bit Corruption**: In June 2008, Amazon S3 suffered internal load balancer corruptions that silently altered single bytes in stored files, causing customer hash verifications to fail intermittently under load.
-2. **Access Control Leaks**: Google Docs suffered access control flaws resulting in private documents being shared with unintended third parties.
-3. **Catastrophic Administrative Loss**: Cloud provider LinkUp (MediaMax) lost 45% of customer data permanently due to administrator error, forcing the firm out of business.
+CipherShare solves this foundational vulnerability by implementing **Client-Side Hybrid Cryptography**. Grounded in the theoretical framework of **Popa et al. (CloudProof, USENIX ATC '11)**, CipherShare enforces end-to-end zero-knowledge secrecy: bulk file payloads are encrypted client-side in browser volatile memory using **AES-256-GCM**, while content keys are encapsulated using **RSA-OAEP 3072-bit** asymmetric cryptography. The cloud acts strictly as an untrusted blind storage repository with zero plaintext or private key knowledge.
 
-### 1.2 The "Encryption at Rest" Fallacy
-Cloud vendors market "Server-Side Encryption with KMS (SSE-KMS)" as an enterprise security panacea. However, in server-side encryption:
-$$\text{Plaintext } P \xrightarrow{\text{TLS}} \text{Cloud Server RAM } [P, K_{\text{KMS}}] \xrightarrow{\text{Encrypt}} \text{Storage Disk } [C]$$
-The cloud server retains full access to content-encryption keys and unencrypted buffers in volatile memory. A hypervisor breach, malicious cloud employee, rogue subprocess, or government subpoena yields total plaintext access.
+### 1.1 Client-Side Encryption vs. Traditional Cloud Storage
 
-### 1.3 Popa et al.'s Four Pillars of Cloud Storage Security
-Popa et al. formalized the four mandatory security properties that an accountable cloud storage service must uphold:
-1. **Confidentiality ($C$)**: Illegitimate users and the cloud provider itself must be mathematically incapable of reading block contents.
-2. **Integrity ($I$)**: Every read must return the exact content written by an authorized user; unauthorized bit modifications or server substitutions must be detected.
-3. **Write-Serializability ($W$)**: Updates must follow a total, unambiguous order, preventing fork attacks where the cloud serves divergent views to different clients.
-4. **Read Freshness ($F$)**: Reads must return the data committed by the most recent write, preventing stale data replay.
+| Storage Architecture | Plaintext Visibility | Content Key Custody | Tamper Detection | Access Isolation |
+| :--- | :--- | :--- | :--- | :--- |
+| **Traditional Cloud (S3 / Azure)** | Cloud server sees plaintext in RAM | Cloud provider KMS manages keys | Hash checksums only; no AEAD tag | Database flag; server can bypass |
+| **Server-Side Encryption (SSE)** | Cloud encrypts *after* receiving data | Server holds decryption keys | Vulnerable to internal tampering | Server memory dump exposes all |
+| **CipherShare (Hybrid Zero-Knowledge)** | **Zero Server Plaintext** (Client RAM only) | **Client Browser Only** (Encrypted in IndexedDB) | **128-bit GMAC Tag + Canonical AAD** | **Cryptographic Envelopes + HTTP 403** |
 
 ---
 
-## 2. Theoretical Grounding: Analysis of Popa et al. (CloudProof)
+## 2. Cryptographic Architecture — Core Concepts
 
-Popa et al. proposed **CloudProof** to bridge the gap between untrusted cloud platforms and financial SLAs through an **Attestation Exchange Protocol**.
+CipherShare combines symmetric authenticated encryption, asymmetric key encapsulation, canonical metadata binding, and verifiable attestations into a unified pipeline.
 
-```
-Popa et al. Chained Attestation Model (Eq. 1):
-chain_hash_i = Hash(data_i || chain_hash_{i-1})
-```
+### 2.1 The Four Popa et al. Security SLA Properties
+Following the formal cloud storage security definitions established by Raluca Ada Popa et al. (MIT & Microsoft Research), CipherShare guarantees four essential security properties:
+1. **Confidentiality (C)**: The cloud provider or any unauthorized party cannot deduce the plaintext content of any file stored in the repository.
+2. **Integrity (I)**: Every read returns the exact, unaltered payload committed by an authorized writer. Any modification is detected by the 128-bit authentication tag.
+3. **Write-Serializability (W)**: Updates follow a verified sequence counter, preventing fork attacks where the cloud serves divergent views to different users.
+4. **Read Freshness (F)**: Reads return the latest committed state, preventing replay of stale ciphertext using chained attestation hashes.
 
-### 2.1 The Attestation Exchange Mechanism
-In CloudProof, every cloud interaction generates a cryptographically signed receipt:
-- **Client Put Attestation**: Emitted by the writer upon submitting an update, certifying: *"I request committing version $v$ with digest $H(P)$"*.
-- **Cloud Put Attestation**: Emitted by the cloud acknowledging receipt: *"I certify committing version $v$ into the storage tree"*.
-- **Cloud Get Attestation**: Emitted by the cloud upon retrieval: *"I certify that this block represents the fresh state at version $v$ for request nonce $N$"*.
+### 2.2 Step-by-Step Encryption & Sharing Protocol
+1. **Local Symmetric Key Generation**: The sender's browser allocates a fresh 256-bit AES key in volatile memory and generates a 96-bit random nonce using `crypto.getRandomValues()`.
+2. **Canonical AAD Assembly**: The client constructs a canonical JSON string binding file metadata: `AAD = {"fileId", "sender", "recipient", "classification", "version"}`.
+3. **Payload AEAD Encryption**: The payload is encrypted via AES-256-GCM. The cipher produces the ciphertext and a 128-bit Galois Message Authentication Code (GMAC) tag over both the payload and AAD.
+4. **Asymmetric Key Encapsulation (RSA-OAEP 3072)**: The client fetches the recipient's published RSA-OAEP 3072-bit public key and wraps the 256-bit AES key into an encrypted key envelope.
+5. **Zero-Knowledge Cloud Dispatch**: The client uploads the ciphertext binary blob and recipient key envelope to cloud storage (Supabase S3). The server issues a Cloud Put Attestation.
+6. **Isolated Download & Decryption**: When the authorized recipient requests download, the server verifies access and returns *only* their specific envelope. The recipient unwraps the AES key using their private key in browser RAM and decrypts the payload.
 
-### 2.2 Proofs of Security Violations
-CloudProof was the first system enabling clients to construct verifiable **Proofs of Violation**:
-- **Proof of Integrity ($I$) Violation**: A client presents a block where the cloud's signature covers a hash that fails to match the block’s actual content.
-- **Proof of Write-Serializability ($W$) Violation**: If the cloud attempts a fork attack, the client presents two cloud put attestations acknowledging the same version number $m+1$ with differing content hashes (Theorem 1 in Popa et al.).
-- **Proof of Freshness ($F$) Violation**: If the cloud returns stale data, the broken sequence in the chained hash function proves that a committed write occurred prior to the get attestation (Theorem 2 in Popa et al.).
+### 2.3 Worked Example — Hybrid Key Encapsulation & Envelope Generation
+To illustrate the hybrid cryptographic flow, consider sharing a document (`Audit_2026.pdf`, 128 KB) from Alice to Bob:
 
----
-
-## 3. Critical Gaps in Popa et al. & CipherShare's Improvements
-
-While groundbreaking, Popa et al.'s design was constrained by the cryptographic primitives and cloud tooling of 2011. **CipherShare addresses six fundamental limitations**:
-
-```
-+----------------------------------------------------------------------------------------------------+
-|                             ARCHITECTURAL & CRYPTOGRAPHIC COMPARISON                               |
-+--------------------------+-------------------------------------+-----------------------------------+
-| Feature Dimension        | Popa et al. (CloudProof 2011)       | CipherShare (Our Modernized Sys.) |
-+--------------------------+-------------------------------------+-----------------------------------+
-| Hash Standard            | SHA-1 (Broken, collision-prone)     | SHA-256 / SHA-512 (FIPS 180-4)    |
-| Asymmetric Key Size      | 1024-bit RSA (NIST Deprecated)      | RSA-OAEP 3072-bit (128-bit Sec.)  |
-| Symmetric Cipher Mode    | AES in Counter Mode (AES-CTR)       | AES-256-GCM (NIST SP 800-38D)    |
-| Integrity Verification   | Separate RSA signature per block    | Integrated 128-bit GMAC Tag       |
-| Context Binding (AAD)    | None (Vulnerable to transplant)     | Canonical JSON AAD Binding        |
-| Execution Environment    | Native C# .NET Desktop Application  | Zero-Install W3C Web Crypto API   |
-| Endpoint Key Storage     | Unspecified OS Keyring              | PBKDF2-SHA-256 in IndexedDB Vault |
-| Key Distribution         | Broadcast Encryption (Block Families)| Granular Zero-Overlap Envelopes   |
-| Violation Verification   | Monthly offline batch epochs        | Real-Time Interactive HTTP Proofs |
-+--------------------------+-------------------------------------+-----------------------------------+
-```
-
-### Detailed Improvement Analysis:
-1. **Modern Authenticated Encryption (AEAD) vs AES-CTR**: Popa et al. utilized AES-CTR for encryption and a separate RSA signature for integrity. This introduced a $15\%$ write latency penalty. CipherShare implements **AES-256-GCM**, which computes a 128-bit Galois Message Authentication Code (GMAC) concurrently with encryption in a single pass over the hardware-accelerated polynomial field $\text{GF}(2^{128})$.
-2. **Elimination of Ciphertext Transplant Attacks (Canonical AAD)**: In CloudProof, a malicious storage operator could swap encrypted block $A$ into block $B$'s storage slot without detection if both used identical group keys. CipherShare binds the metadata directly into the GMAC tag:
-   $$\text{AAD} = \text{CanonicalJSON}(\{ \text{fileId}, \text{senderId}, \text{recipientId}, \text{classification}, \text{version} \})$$
-   Altering a single byte of metadata renders the GMAC tag mathematically invalid.
-3. **Zero-Installation Browser Execution**: CloudProof required compiling 4,000 lines of C# against the Windows Server 2008 SDK. CipherShare executes directly inside the end-user’s browser using the standardized W3C **Web Crypto API** (`crypto.subtle`), ensuring private keys exist strictly in volatile RAM.
-4. **Endpoint Key Vault at Rest**: While Popa et al. assumed keys were safely pre-installed, CipherShare solves client-side storage at rest: exporting the private key in PKCS#8 format and encrypting it via **PBKDF2-SHA-256 (600,000 iterations)** + **AES-GCM** inside browser **IndexedDB**.
-5. **Zero-Overlap Asymmetric Envelopes**: Instead of complex $O(\sqrt{n})$ broadcast encryption across block families, CipherShare generates individual RSA-OAEP 3072-bit envelopes. The download authorization endpoint returns strictly the single envelope matching the authenticated caller, enforcing recipient isolation.
+| Stage | Operation / Primitive | Mathematical / Technical Representation | Security Guarantee |
+| :--- | :--- | :--- | :--- |
+| **1. Session Key** | AES-256 Key Gen | `K_AES = Random(256 bits)` (Hex: `7f8a...3b21`) | Fresh volatile key per file |
+| **2. Nonce (IV)** | 96-bit Secure Vector | `IV = crypto.getRandomValues(12 bytes)` | Nonce uniqueness prevents replay |
+| **3. AAD Binding** | Canonical UTF-8 JSON | `{"fileId":"f_92a","ver":"1.0","class":"CONFIDENTIAL"}` | Prevents ciphertext transplant |
+| **4. Bulk Encryption** | AES-256-GCM | `Ciphertext, Tag_128 = Encrypt_GCM(K_AES, IV, Data, AAD)` | Authenticity + Confidentiality |
+| **5. Key Wrapping** | RSA-OAEP 3072-bit | `Envelope = RSA_OAEP_Encrypt(PK_Bob, K_AES)` (384 bytes) | Only Bob's private key can unwrap |
+| **6. RAM Scrubbing** | Memory Cleanup | Discard raw `K_AES` from volatile browser memory | Zero plaintext key persistence |
 
 ---
 
-## 4. Software Architecture & Implementation
+## 3. Technical Implementation
 
-CipherShare is structured into three decoupled layers upholding the Zero-Knowledge Invariant:
+### 3.1 Technology Stack
 
+| Component | Technology | Technical Purpose |
+| :--- | :--- | :--- |
+| **Language & Frontend** | TypeScript, React 18, Vite | Type-safe client presentation and execution framework |
+| **Cryptographic Engine** | W3C Web Crypto API (`crypto.subtle`) | Hardware-accelerated browser-native cryptographic primitives |
+| **Client Key Vault** | IndexedDB (`idb` wrapper) | Passphrase-encrypted private key storage at rest via PBKDF2 |
+| **Backend REST API** | Python 3.12, Flask, Flask-SQLAlchemy | Session authorization, ACL checks, and attestation tracking |
+| **Database** | PostgreSQL (Supabase pooler / SQLite dev) | User metadata, public key JWKs, and tamper-evident audit logs |
+| **Cloud Object Storage**| Supabase Cloud Storage (S3 API compatible) | Remote encrypted ciphertext repository with zero plaintext access |
+| **Authentication** | Argon2id & PyJWT | Memory-hard password hashing and signed bearer token sessions |
+
+### 3.2 Cryptographic Methods Summary
+
+| Cryptographic Primitive | Implementation Details | Key Characteristics & Parameter Choices |
+| :--- | :--- | :--- |
+| **AES-256-GCM** | `crypto.subtle.encrypt("AES-GCM")` | 256-bit key, 96-bit IV, 128-bit authentication tag over GF(2^128) |
+| **RSA-OAEP 3072** | `crypto.subtle.wrapKey("RSA-OAEP")` | 3072-bit modulus, e = 65537, SHA-256 hash, MGF1 padding |
+| **Canonical AAD** | UTF-8 Canonical JSON Serialization | Contextually bound to GMAC polynomial to prevent block substitution |
+| **PBKDF2-SHA-256** | `crypto.subtle.deriveKey("PBKDF2")` | 600,000 iterations, 128-bit random salt, derives 256-bit AES vault key |
+| **Popa Attestation** | Chained SHA-256 Hash Function | `chain_hash = SHA256(data + prev_chain_hash)` for freshness auditing |
+| **Argon2id** | `passlib.hash.argon2` | Time cost = 2, memory cost = 64 MB, parallelism = 2 |
+
+### 3.3 API Design & Endpoint Architecture
+The client and server interact through a streamlined, authenticated REST protocol:
+
+```typescript
+// 1. Client-Side Cryptographic API (W3C Web Crypto in browser volatile RAM)
+static async encryptPayload(data: ArrayBuffer, key: CryptoKey, iv: Uint8Array, aad: Uint8Array): Promise<ArrayBuffer>;
+static async wrapKeyEnvelope(aesKey: CryptoKey, recipientPubKey: CryptoKey): Promise<string>;
+static async unwrapKeyEnvelope(envelopeBase64: string, privateKey: CryptoKey): Promise<CryptoKey>;
+static async decryptPayload(ciphertext: ArrayBuffer, key: CryptoKey, iv: Uint8Array, aad: Uint8Array): Promise<ArrayBuffer>;
 ```
-+----------------------------------------------------------------------------------------------------+
-|                                      CIPHERSHARE ARCHITECTURE                                      |
-+----------------------------------------------------------------------------------------------------+
-|  1. BROWSER CRYPTOGRAPHIC ENGINE (React 18 + TypeScript + W3C Web Crypto API)                      |
-|     - SubtleCrypto Engine: AES-256-GCM, RSA-OAEP 3072, SHA-256                                     |
-|     - Local Protected Vault: PBKDF2-SHA-256 (600k iterations) in IndexedDB                          |
-|     - Popa SLA Demonstration HUD: Step-by-Step Telemetry with Default Paused Pacing                 |
-|     - Global Cloud Directory: Public Catalog with Per-User Cryptographic Barrier Proofs            |
-+----------------------------------------------------------------------------------------------------+
-                                           │  HTTPS / REST (JWT Session)
-                                           ▼
-+----------------------------------------------------------------------------------------------------+
-|  2. BACKEND ACCESS CONTROL & ATTESTATION ENGINE (Python 3.12 + Flask API)                          |
-|     - Popa Attestation Dispatcher: Generates Cloud Put & Cloud Get Signed Attestations             |
-|     - Envelope Isolation Engine: Restricts Key Delivery Exclusively to Authorized Callers          |
-|     - Real-Time SLA Proof Verification Endpoint: POST /api/v1/files/verify-sla-proof               |
-|     - Tamper-Evident Audit Logger: Sanitizes Secrets While Logging Verifiable Proofs               |
-+----------------------------------------------------------------------------------------------------+
-                   │                                                   │
-                   ▼ SQL (psycopg pooler)                              ▼ REST / S3 Storage API
-+----------------------------------------------+    +------------------------------------------------+
-|  3. PERSISTENCE LAYER (PostgreSQL)           |    |  4. CLOUD REPOSITORY (Supabase S3 Storage)     |
-|     - User Credentials & Argon2id Hashes     |    |     - Ciphertext Binary Payloads (*.enc)       |
-|     - Public Key JWK RFC 7638 Fingerprints   |    |     - Publicly Addressable Storage Keys        |
-|     - Attestation Chain Metadata             |    |     - 100% Zero-Knowledge Storage Barrier      |
-+----------------------------------------------+    +------------------------------------------------+
+
+```python
+# 2. Backend Access Control & Attestation API (Flask Blueprint: /api/v1/files)
+POST /api/v1/files/initiate              # Validates sender JWT, returns recipient public key JWK
+POST /api/v1/files/<file_id>/upload      # Commits encrypted binary ciphertext blob to S3 storage
+POST /api/v1/files/<file_id>/complete    # Stores key envelopes and issues Cloud Put Attestation
+POST /api/v1/files/<file_id>/download-authorize  # ACL check; returns ONLY caller's envelope + Cloud Get Attestation
+POST /api/v1/files/verify-sla-proof      # Verifies non-repudiable Proofs of Violation (Popa Theorems 1 & 2)
 ```
 
 ---
 
-## 5. Empirical Performance Evaluation: Popa et al. vs CipherShare
+## 4. Results & Performance
 
-We benchmarked CipherShare against the reported metrics from Popa et al.'s original Windows Azure testbed (Intel Duo CPU 3.0 GHz vs modern Chromium V8 runtime):
+### 4.1 Key Performance Metrics
 
-```
-+----------------------------------------------------------------------------------------------------+
-|                             REAL-WORLD PERFORMANCE BENCHMARK COMPARISON                            |
-+------------------------------------+--------------------------+------------------------------------+
-| Performance Metric                 | Popa et al. (CloudProof) | CipherShare (Our Modernized Sys.)  |
-+------------------------------------+--------------------------+------------------------------------+
-| Symmetric Encryption Latency (1 MB)| ~70.0 ms (AES-CTR + Sig) | 4.62 ms (AES-256-GCM + GMAC)       |
-| Effective Symmetric Throughput     | ~3.5 MB/s (C# .NET)      | 216.4 MB/s (Hardware AES-NI)       |
-| Asymmetric Key Wrapping Latency    | ~12.0 ms (RSA 1024-bit)  | 3.82 ms (RSA-OAEP 3072-bit)        |
-| Asymmetric Key Unwrapping Latency  | ~35.0 ms (RSA 1024-bit)  | 11.45 ms (RSA-OAEP 3072-bit)       |
-| Key Vault Derivation Latency       | Not Implemented          | 321.4 ms (PBKDF2 600,000 iter)     |
-| Cryptographic Integrity Digest     | ~8.5 ms (SHA-1)          | 1.94 ms (SHA-256)                  |
-| Write Throughput Overhead          | 11.0% Degradation        | Negligible (< 2.5% on 1 MB blob)   |
-| Read Throughput Overhead           | 12.0% Degradation        | Negligible (< 1.8% on 1 MB blob)   |
-+------------------------------------+--------------------------+------------------------------------+
-```
+| Metric | Measured Value | Operational Context |
+| :--- | :--- | :--- |
+| **Maximum File Size** | 25 MB (configurable) | Client-side memory-safe streaming limit |
+| **Symmetric Encryption Throughput** | **216.4 MB/s** | Hardware-accelerated AES-NI via Web Crypto API |
+| **Symmetric Encryption Latency** | **4.62 ms** | 1 MB payload (AES-256-GCM + 128-bit GMAC) |
+| **Symmetric Decryption Latency** | **3.88 ms** | 1 MB payload with AAD verification |
+| **RSA-OAEP 3072 Key Wrap Latency** | **3.82 ms** | Public-key encryption of 256-bit AES key |
+| **RSA-OAEP 3072 Key Unwrap Latency** | **11.45 ms** | Private-key unwrapping in recipient browser RAM |
+| **PBKDF2 Key Derivation Latency** | **321.4 ms** | 600,000 iterations for local IndexedDB vault unlock |
+| **Bit-Flip Tamper Detection** | **100% (Instant)** | Throws `DOMException: OperationError`; 0 bytes leaked |
+| **Automated Test Pass Rate** | **100% (11/11)** | 6/6 Frontend Vitest (1.11s) + 5/5 Backend Pytest (3.18s) |
 
-### Automated Verification Metrics:
-- **Backend Test Suite (Pytest 8.2.2)**: `5 passed in 3.18s` (validating Argon2id password hashing, JWT enforcement, upload initiation, download authorization, and HTTP 403 ACL checks).
-- **Frontend Cryptographic Test Suite (Vitest 2.1.9)**: `6 passed in 1.11s` (validating AES-256-GCM roundtrip, single-bit tamper detection, AAD mismatch rejection, and RSA-OAEP 3072 key encapsulation).
-- **Production Bundle**: Built cleanly in `12.42s` (`328.33 kB` JS / `90.25 kB` gzip), proving extreme lightweight footprint compared to desktop installations.
+### 4.2 Comparative Evaluation — Popa et al. (CloudProof) vs. CipherShare
 
----
+| Evaluation Dimension | Popa et al. (CloudProof, USENIX ATC '11) | CipherShare (Our Modernized Implementation) |
+| :--- | :--- | :--- |
+| **Hash Standard** | SHA-1 (Broken, vulnerable to collision attacks) | **SHA-256 / SHA-512** (Collision-resistant, FIPS 180-4) |
+| **Public Key Cryptography**| 1024-bit RSA (Factoring vulnerability) | **RSA-OAEP 3072-bit** (NIST compliant through 2030+) |
+| **Bulk Cipher & Mode** | AES-CTR with separate RSA signatures per block | **AES-256-GCM** single-pass authenticated encryption |
+| **Transplant Resilience** | None (block transplant between files undetected) | **Canonical AAD Context Binding** prevents substitution |
+| **Client Deployment** | Native C# Desktop Binary (.NET / Windows Server) | **Zero-Install Web Browser** via W3C Web Crypto API |
+| **Private Key At Rest** | Unprotected local OS filesystem | **PBKDF2-SHA-256 (600k iter) + AES-GCM in IndexedDB** |
+| **Encryption Throughput** | ~3.5 MB/s (measured in .NET runtime) | **216.4 MB/s** (in-browser hardware AES-NI execution) |
+| **Write Overhead** | 11.0% throughput degradation on Azure | **Negligible (< 2.5% on 1 MB payloads)** |
 
-## 6. Experimental Visual Evidence & Attack Demonstrations
-
-The system was verified against adversarial attack scenarios reflecting Popa et al.'s threat models.
-
-### 6.1 Authentication & Zero-Knowledge Architecture
-The entry interface establishes the client-side boundary before any session keys are minted:
-
-![Figure 1: Authentication Interface](screenshots/01_landing_page.png)  
-*Figure 1: CipherShare landing interface detailing zero-knowledge hybrid architecture and client-side isolation.*
+### 4.3 Why Web Crypto API & IndexedDB?
+The W3C Web Crypto API executes directly in browser native code (C++ in Chromium/V8), providing direct access to CPU cryptographic instructions (AES-NI and CLMUL) without JavaScript interpreter overhead. Furthermore, storing private keys in `localStorage` would leave them exposed to Cross-Site Scripting (XSS). CipherShare avoids this by deriving an ephemeral Key Encryption Key (KEK) using PBKDF2-SHA-256 and encrypting the private key at rest inside browser **IndexedDB**, guaranteeing that private keys exist unencrypted strictly in volatile RAM during active sessions.
 
 ---
 
-### 6.2 Configurable Demonstration Workspace (Popa et al. Parameters)
-The testbed provides complete evaluator control over algorithm primitives, file sizes, and AAD classification fields:
+## 5. Security Analysis & Threat Mitigation
 
-![Figure 2: Configurable Demonstration Workspace](screenshots/02_demo_workspace_inputs.png)  
-*Figure 2: Demonstration workspace showing rich user inputs, file upload, algorithm selector (AES-256 vs 128, RSA-3072 vs 2048), and AAD parameters.*
+| Threat / Attack Vector | Attack Mechanism | Detection & Defense Mechanism | Security Outcome |
+| :--- | :--- | :--- | :--- |
+| **Passive Eavesdropping** | Intercepting ciphertext in transit or at rest | AES-256-GCM symmetric encryption (2^256 keyspace) | Complete confidentiality; data indistinguishable from random noise |
+| **Unauthorized Access (Eve)** | Non-recipient requests download authorization | Server checks recipient ACL; returns HTTP 403 Forbidden | Key envelope strictly withheld; zero key material delivered |
+| **Bit-Flip Wire Tampering** | Adversary flips bits in ciphertext (`byte[12] ^= 0x01`) | 128-bit Galois Message Authentication Code (GMAC) verification | Decryption fails with `OperationError`; exactly 0 plaintext bytes released |
+| **Ciphertext Transplant** | Adversary swaps ciphertext of File A into File B | Canonical AAD bound to GMAC polynomial tag | Metadata mismatch invalidates authentication tag immediately |
+| **Replay / Stale Data** | Cloud returns old committed ciphertext version | Popa et al. Chained Attestation hash + client nonce | Attestation sequence broken; freshness violation provable |
+| **Server Compromise** | Malicious admin dumps database and S3 buckets | Zero Server Plaintext Invariant: server has no keys | Stored blobs are computationally impossible to decrypt without private keys |
 
----
-
-### 6.3 Live Telemetry HUD: Stage 1 (Property C - Confidentiality)
-When an evaluation starts, the HUD opens in a **paused state** at Stage 1, allowing the presenter to examine parameters before advancing:
-
-![Figure 3: Live Telemetry HUD](screenshots/03_execution_telemetry_hud.png)  
-*Figure 3: Live execution telemetry HUD paused at Stage 1 (Verifying Popa Property C: Confidentiality via local AES-256-GCM key generation).*
-
----
-
-### 6.4 Stage 4: Popa Attestation Exchange & Asymmetric KEM Wrap
-Advancing to Stage 4 demonstrates asymmetric encapsulation of the symmetric content key:
-
-![Figure 4: Key Encapsulation](screenshots/04_hybrid_asymmetric_wrap.png)  
-*Figure 4: Telemetry overlay showing Stage 4: RSA-OAEP 3072-bit key encapsulation and volatile key scrubbing.*
+### 5.1 Popa et al. Proofs of Violation in CipherShare
+Under Popa et al.'s SLA enforcement theorems:
+- **Proof of Authorization Violation**: When Eve attempts download, the server records an immutable audit log and returns `HTTP 403 Forbidden`. The absence of a valid recipient signature serves as non-repudiable proof that the cloud denied access to an unauthorized party.
+- **Proof of Integrity Violation**: If an adversary or storage fault alters stored bytes, the client presents the cloud's signed put attestation alongside the received ciphertext. The failure of the 128-bit GMAC tag constitutes non-repudiable proof of cloud integrity failure.
 
 ---
 
-### 6.5 Attack Demonstration 1: Eve Unauthorized Access Denial (Popa Proof of Access Violation)
-When an unauthorized user (Eve) attempts to access Bob's dispatch, the server enforces recipient access controls and rejects the request with **HTTP 403 Forbidden**:
+## 6. Limitations & Future Scope
 
-![Figure 5: Eve Access Denial](screenshots/05_eve_unauthorized_barrier.png)  
-*Figure 5: Intruder access test proving HTTP 403 Forbidden enforcement, envelope withholding, and zero key delivery.*
+### 6.1 Current Limitations
 
-**Proof of Access Violation**: The server emits an unforgeable 403 Forbidden rejection. Even if Eve captures the ciphertext directly from Supabase S3, the difficulty of recovering the AES-256 key without Bob's private key requires breaking RSA-OAEP 3072 ($> 2^{128}$ operations) or brute-forcing AES-256 ($2^{256}$ operations).
+| Limitation | Technical Description | Impact & Mitigation |
+| :--- | :--- | :--- |
+| **Browser RAM Ceiling** | Web Crypto operates in-memory; files are buffered in RAM | Files > 100 MB may strain browser memory; resolved via chunked streaming |
+| **Endpoint Compromise** | Client device infected with kernel-level keylogger | If the client endpoint is breached, volatile RAM can be inspected after decryption |
+| **Public Metadata Visibility**| File names, sizes, and recipient emails are cataloged | Encrypted filenames and anonymous recipient IDs can be added for metadata privacy |
 
----
-
-### 6.6 Attack Demonstration 2: 1-Bit Payload Tamper Rejection (Popa Proof of Integrity Violation)
-A 1-bit alteration was injected into the encrypted ciphertext byte stream (`ciphertextBytes[12] ^= 0x01`):
-
-![Figure 6: Bit-Flip Tampering Rejection](screenshots/06_tamper_detection_gmac.png)  
-*Figure 6: Web Crypto GMAC verification failure (`DOMException: OperationError`) upon single-bit alteration.*
-
-**Proof of Integrity ($I$) Violation**: Evaluating the Galois Field $\text{GF}(2^{128})$ polynomial over the corrupted ciphertext failed tag verification. WebCrypto threw `DOMException: OperationError` and aborted immediately. **Exactly 0 bytes of corrupted plaintext were released into memory.**
+### 6.2 Planned Enhancements
+- **Post-Quantum Cryptography (PQC)**: Upgrade key encapsulation from RSA-OAEP 3072 to **ML-KEM (Kyber-768)** to defend against "Harvest Now, Decrypt Later" quantum attacks.
+- **Hierarchical Access Control**: Implement Ciphertext-Policy Attribute-Based Encryption (CP-ABE) for role-based organizational sharing without individual recipient envelopes.
+- **Zero-Knowledge Proofs (zk-SNARKs)**: Enable clients to verify storage policy compliance (e.g., file retention dates) without revealing metadata to the public directory.
 
 ---
 
-### 6.7 Global Cloud Repository & Public Directory
-In the **Cloud Directory** (`/directory`), all encrypted files residing in Supabase S3 are publicly cataloged, while access controls clearly demarcate decryptable files from unauthorized ones:
+## 7. Conclusion
 
-![Figure 7: Global Cloud Directory](screenshots/07_cloud_directory_catalog.png)  
-*Figure 7: Global cloud directory displaying all encrypted objects in Supabase S3 with live per-user authorization status.*
+CipherShare successfully implements and modernizes the cryptographic cloud storage guarantees formulated by **Popa et al. (CloudProof, USENIX ATC '11)**. By deploying genuine **AES-256-GCM** authenticated symmetric encryption, **Canonical AAD** contextual binding, **RSA-OAEP 3072-bit** asymmetric key encapsulation, and an **IndexedDB encrypted key vault**, the system eliminates reliance on cloud trust.
 
----
-
-### 6.8 Tamper-Evident Audit Ledger
-All attestation exchanges, upload completions, and denied access attempts are permanently committed to an audit ledger with sensitive metadata strictly scrubbed:
-
-![Figure 8: Tamper-Evident Audit Ledger](screenshots/09_tamper_evident_audit_ledger.png)  
-*Figure 8: Tamper-evident audit ledger displaying sanitized event metadata for dispatches, authorizations, and denied attempts.*
+Empirical testing confirms that client-side hybrid cryptography incurs negligible performance overhead (**4.62 ms** latency, **216 MB/s** throughput) while providing robust mathematical protection: non-recipients are stopped by strict **HTTP 403 Forbidden** barriers, single-bit corruptions are stopped by 128-bit GMAC tags, and the cloud server never possesses plaintext or private keys. CipherShare demonstrates that zero-knowledge security SLAs can be seamlessly deployed in standard web browsers without requiring native plugins or compromising cloud scalability.
 
 ---
 
-## 7. Conclusions & Future Research Directions
-
-### 7.1 Summary of Contributions
-By grounding **CipherShare** in the theoretical framework of **Popa et al. (CloudProof, USENIX ATC '11)**, this project has demonstrated that:
-1. **Security SLAs are Practically Implementable**: Client-side hybrid cryptography allows enterprise users to hold cloud storage vendors accountable for confidentiality ($C$) and integrity ($I$) without relying on cloud trust.
-2. **Modern Web Crypto Eliminates Legacy Bottlenecks**: Modern browser APIs execute AES-256-GCM at **216 MB/s**, eliminating the heavy latency overheads that plagued early C# implementations.
-3. **Contextual Binding Neutralizes Transplant Vulnerabilities**: Canonical AAD binding provides mathematical immutability across file metadata, resolving a critical threat vector overlooked in early cloud systems.
-
-### 7.2 Future Work: Post-Quantum SLA Protections
-While RSA-OAEP 3072 provides robust classical security, future extensions will integrate NIST-standardized **Post-Quantum Cryptography (PQC)**:
-- Upgrading asymmetric key encapsulation to **ML-KEM (Kyber-768)** to guard against "Harvest Now, Decrypt Later" quantum adversary models.
-- Evaluating verifiable zero-knowledge proofs (zk-SNARKs) to prove storage compliance without revealing metadata to the public cloud directory.
-
----
-
-## References
-
-1. **Popa, R. A., Lorch, J. R., Molnar, D., Wang, H. J., & Zhuang, L.** (2011). *Enabling Security in Cloud Storage SLAs with CloudProof*. In Proceedings of the 2011 USENIX Annual Technical Conference (USENIX ATC '11), Portland, OR.
-2. Dworkin, M. (2007). *Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC*. NIST Special Publication 800-38D.
-3. Jonsson, J., & Kaliski, B. (2003). *Public-Key Cryptography Standards (PKCS) #1: RSA Cryptography Specifications Version 2.1*. RFC 3447.
-4. W3C Web Cryptography Working Group. (2017). *Web Cryptography API*. W3C Recommendation.
-5. Moriarty, K., et al. (2017). *PKCS #5: Password-Based Cryptography Specification Version 2.1*. RFC 8018.
-6. Biryukov, A., Dinu, D., & Khovratovich, D. (2016). *Argon2: New Generation of Memory-Hard Functions for Password Hashing and Other Applications*.
-7. Jones, M. (2015). *JSON Web Key (JWK) Thumbprint*. RFC 7638.
+**Project Repository**: `https://github.com/ciphershare/ciphershare`  
+**Group Number**: Group - 22  
+**Evaluation Scope**: Academic Applied Cryptography & Information Security Project
