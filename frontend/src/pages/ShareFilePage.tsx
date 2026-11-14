@@ -334,180 +334,198 @@ export const ShareFilePage: React.FC = () => {
         </div>
       )}
 
-      {completedFileId ? (
-        <div className="py-8 space-y-6">
-          <div className="flex items-center space-x-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">File Encrypted and Dispatched</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Ciphertext blob uploaded to private cloud storage. Intended recipients can now retrieve their envelopes.
+      {completedFileId && (
+        <div className="py-4 px-5 border-l-2 border-emerald-600 bg-emerald-50/70 text-xs text-emerald-950 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0">
+              <div className="font-semibold text-emerald-900 text-sm">
+                File Encrypted & Dispatched Successfully
+              </div>
+              <p className="text-xs text-emerald-800">
+                Ciphertext blob uploaded to cloud storage. Intended recipients can now retrieve their envelopes. All 9 steps completed below.
               </p>
-            </div>
-          </div>
-
-          <div className="py-4 border-y border-slate-100 font-mono text-xs space-y-2">
-            <div>
-              <span className="text-slate-400 text-[11px] block">FILE ID:</span>
-              <span className="text-slate-900 font-medium break-words-anywhere select-all">
-                {completedFileId}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400 text-[11px] block">CIPHERTEXT SHA-256:</span>
-              <span className="text-slate-600 text-[11px] break-words-anywhere select-all">
-                {events.find(e => e.stageKey === 'aes_encrypt_file')?.metadata?.ciphertextSHA256}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <button
-              onClick={() => {
-                setSelectedFile(null);
-                setCompletedFileId(null);
-                setEvents([]);
-              }}
-              className="text-xs font-semibold text-slate-900 hover:text-slate-600 flex items-center gap-1.5"
-            >
-              <span>Share Another File</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Left Column: Form (Open, non-boxy) */}
-          <div className="lg:col-span-5 space-y-8">
-            {/* File Selector */}
-            <div className="space-y-3">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                1. Select File
-              </div>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-b border-dashed border-slate-300 hover:border-slate-800 py-6 cursor-pointer transition-colors"
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileChange(e.target.files[0]);
-                    }
-                  }}
-                />
-                <div className="space-y-1">
-                  <div className="text-sm font-semibold text-slate-900 break-words-anywhere">
-                    {selectedFile ? selectedFile.name : 'Click to browse or drop file here'}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {selectedFile
-                      ? `${(selectedFile.size / 1024).toFixed(1)} KB • ${selectedFile.type || 'application/octet-stream'}`
-                      : 'Documents, images, or archives up to 25 MB'}
-                  </div>
+              <div className="font-mono text-[11px] text-emerald-900/90 flex flex-wrap gap-x-5 gap-y-1 pt-1">
+                <div>
+                  <span className="text-emerald-700">FILE ID: </span>
+                  <span className="font-semibold select-all text-slate-900">{completedFileId}</span>
                 </div>
-                {fileHash && (
-                  <div className="mt-3 text-[10px] text-slate-500 font-mono break-words-anywhere select-all">
-                    SHA-256: {fileHash}
+                {events.find(e => e.stageKey === 'aes_encrypt_file')?.metadata?.ciphertextSHA256 && (
+                  <div>
+                    <span className="text-emerald-700">CIPHERTEXT SHA-256: </span>
+                    <span className="font-semibold select-all text-slate-900">
+                      {events.find(e => e.stageKey === 'aes_encrypt_file')?.metadata?.ciphertextSHA256}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Recipient Selector (Open checklist) */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
-                <span>2. Authorized Recipients</span>
-                <span className="font-mono text-slate-500 font-normal">
-                  {selectedRecipientIds.length} selected
-                </span>
-              </div>
-
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search recipient by name or email..."
-                className="w-full border-b border-slate-200 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 bg-transparent"
-              />
-
-              <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-1">
-                {availableUsers.map((u) => {
-                  const isSelected = selectedRecipientIds.includes(u.id);
-                  return (
-                    <div
-                      key={u.id}
-                      onClick={() => u.has_public_key && toggleRecipient(u.id)}
-                      className={`py-2.5 flex items-start justify-between gap-3 text-xs cursor-pointer transition-colors ${
-                        !u.has_public_key
-                          ? 'opacity-40 cursor-not-allowed'
-                          : isSelected
-                          ? 'text-slate-900 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="break-words-anywhere font-medium text-slate-900">{u.name}</div>
-                        <div className="text-[11px] text-slate-400 break-words-anywhere font-mono">{u.email}</div>
-                        {u.public_key_fingerprint && (
-                          <div className="text-[10px] font-mono text-slate-400 mt-0.5 break-words-anywhere">
-                            FP: {u.public_key_fingerprint.substring(0, 16)}...
-                          </div>
-                        )}
-                      </div>
-                      <div className="shrink-0 pt-0.5">
-                        {!u.has_public_key ? (
-                          <span className="text-[10px] text-slate-400 font-mono">No Key</span>
-                        ) : isSelected ? (
-                          <span className="text-xs font-bold text-slate-900 font-mono">✓ Added</span>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-mono">+ Select</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Execute Button */}
-            <div className="pt-2">
-              <button
-                onClick={handleExecuteShare}
-                disabled={isProcessing || !selectedFile || selectedRecipientIds.length === 0}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold tracking-wide disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
-              >
-                {isProcessing ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Encrypting in Browser...</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Encrypt & Dispatch to Cloud Storage</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
-
-          {/* Right Column: Execution Monitor (Open, seamless, non-boxy) */}
-          <div className="lg:col-span-7">
-            <ExecutionMonitor
-              events={events}
-              activeOperationTitle={
-                selectedFile
-                  ? `Hybrid Encryption of "${selectedFile.name}"`
-                  : 'Select file to begin hybrid encryption sequence'
-              }
-              onReset={() => setEvents([])}
-            />
-          </div>
+          <button
+            onClick={() => {
+              setSelectedFile(null);
+              setCompletedFileId(null);
+              setEvents([]);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+            className="self-start md:self-center px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors"
+          >
+            <span>Share Another File</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        {/* Left Column: Form (Open, non-boxy) */}
+        <div className="lg:col-span-5 space-y-8">
+          {/* File Selector */}
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              1. Select File
+            </div>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-b border-dashed border-slate-300 hover:border-slate-800 py-6 cursor-pointer transition-colors"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileChange(e.target.files[0]);
+                  }
+                }}
+              />
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-slate-900 break-words-anywhere">
+                  {selectedFile ? selectedFile.name : 'Click to browse or drop file here'}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {selectedFile
+                    ? `${(selectedFile.size / 1024).toFixed(1)} KB • ${selectedFile.type || 'application/octet-stream'}`
+                    : 'Documents, images, or archives up to 25 MB'}
+                </div>
+              </div>
+              {fileHash && (
+                <div className="mt-3 text-[10px] text-slate-500 font-mono break-words-anywhere select-all">
+                  SHA-256: {fileHash}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recipient Selector (Open checklist) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <span>2. Authorized Recipients</span>
+              <span className="font-mono text-slate-500 font-normal">
+                {selectedRecipientIds.length} selected
+              </span>
+            </div>
+
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search recipient by name or email..."
+              className="w-full border-b border-slate-200 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 bg-transparent"
+            />
+
+            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-1">
+              {availableUsers.map((u) => {
+                const isSelected = selectedRecipientIds.includes(u.id);
+                return (
+                  <div
+                    key={u.id}
+                    onClick={() => u.has_public_key && toggleRecipient(u.id)}
+                    className={`py-2.5 flex items-start justify-between gap-3 text-xs cursor-pointer transition-colors ${
+                      !u.has_public_key
+                        ? 'opacity-40 cursor-not-allowed'
+                        : isSelected
+                        ? 'text-slate-900 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words-anywhere font-medium text-slate-900">{u.name}</div>
+                      <div className="text-[11px] text-slate-400 break-words-anywhere font-mono">{u.email}</div>
+                      {u.public_key_fingerprint && (
+                        <div className="text-[10px] font-mono text-slate-400 mt-0.5 break-words-anywhere">
+                          FP: {u.public_key_fingerprint.substring(0, 16)}...
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0 pt-0.5">
+                      {!u.has_public_key ? (
+                        <span className="text-[10px] text-slate-400 font-mono">No Key</span>
+                      ) : isSelected ? (
+                        <span className="text-xs font-bold text-slate-900 font-mono">✓ Added</span>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-mono">+ Select</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Execute Button */}
+          <div className="pt-2">
+            <button
+              onClick={handleExecuteShare}
+              disabled={isProcessing || !selectedFile || selectedRecipientIds.length === 0 || !!completedFileId}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold tracking-wide disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Encrypting in Browser...</span>
+                </>
+              ) : completedFileId ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Dispatched Successfully (Step 9 Complete)</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Encrypt & Dispatch to Cloud Storage</span>
+                </>
+              )}
+            </button>
+            {completedFileId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFile(null);
+                  setCompletedFileId(null);
+                  setEvents([]);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="w-full mt-2 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded transition-colors text-center"
+              >
+                Clear & Share Another File
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Execution Monitor (Open, seamless, non-boxy) */}
+        <div className="lg:col-span-7">
+          <ExecutionMonitor
+            events={events}
+            activeOperationTitle={
+              selectedFile
+                ? `Hybrid Encryption of "${selectedFile.name}"`
+                : 'Select file to begin hybrid encryption sequence'
+            }
+            onReset={() => setEvents([])}
+          />
+        </div>
+      </div>
     </div>
   );
 };
